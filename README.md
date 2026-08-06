@@ -17,6 +17,12 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="https://diploi.com/launch/yugam23/Valorant-Store-Checker">
+    <img src="https://diploi.com/launch.svg" alt="Launch with Diploi badge">
+  </a>
+</p>
+
 ---
 
 ## Overview
@@ -137,7 +143,25 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 
 ## Deployment
 
-### Vercel (Recommended)
+### Option 1: Deploy with Diploi
+
+[![Launch with Diploi button](https://diploi.com/launch-big.svg)](https://diploi.com/launch/yugam23/Valorant-Store-Checker)
+
+1. Launch the project
+
+  Click the launch button above to create a new Diploi deployment for the app.
+
+2. Add environment variables
+
+  Open the **Environment** tab in the sidebar and add the required variables from this README.
+
+3. View the deployment
+
+  Open the preview URL from your Diploi deployment page.
+
+For more information, visit [diploi.com](https://diploi.com/).
+
+### Option 2: Deploy with Vercel (Recommended)
 
 1. Click **Deploy with Vercel** above, or import the repo at [vercel.com/new](https://vercel.com/new).
 2. Add the following environment variables in the Vercel project settings:
