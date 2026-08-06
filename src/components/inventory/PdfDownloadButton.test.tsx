@@ -42,7 +42,7 @@ describe("PdfDownloadButton", () => {
         tagLine: "NA1",
         competitiveTierIcon: "https://media.valorant-api.com/competitivetiers/564d8e28-c226-3180-6285-e19a411523a5/0/largeicon.png"
       }),
-    }) as any;
+    }) as unknown as typeof fetch;
   });
 
   afterEach(() => {
