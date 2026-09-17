@@ -90,12 +90,51 @@ const CREATE_SESSIONS_INDEX = `
 
 const CREATE_WISHLISTS_TABLE = `
   CREATE TABLE IF NOT EXISTS wishlists (
-    session_id TEXT NOT NULL,
-    puuid      TEXT NOT NULL,
-    skins      TEXT NOT NULL,
-    PRIMARY KEY (session_id, puuid)
+    puuid TEXT NOT NULL PRIMARY KEY,
+    skins TEXT NOT NULL
   )
 `.trim();
+
+// ---------------------------------------------------------------------------
+// Wishlist key migration (session_id, puuid) -> puuid
+// ---------------------------------------------------------------------------
+// SQLite cannot change a PRIMARY KEY with ALTER TABLE, and CREATE TABLE IF NOT
+// EXISTS is a no-op on databases created before this change. Rebuild the table:
+// copy the most recent row per puuid (highest rowid wins), drop, rename.
+// ---------------------------------------------------------------------------
+
+const CREATE_WISHLISTS_REBUILD_TABLE = `
+  CREATE TABLE wishlists_rebuild (
+    puuid TEXT NOT NULL PRIMARY KEY,
+    skins TEXT NOT NULL
+  )
+`.trim();
+
+const COPY_LATEST_WISHLIST_PER_PUUID = `
+  INSERT INTO wishlists_rebuild (puuid, skins)
+  SELECT puuid, skins FROM wishlists
+  WHERE rowid IN (SELECT MAX(rowid) FROM wishlists GROUP BY puuid)
+`.trim();
+
+async function migrateWishlistsToPuuidKeyIfNeeded(client: Client): Promise<void> {
+  const tableInfo = await client.execute('PRAGMA table_info(wishlists)');
+  const hasSessionId = tableInfo.rows.some((row) => row.name === 'session_id');
+  if (!hasSessionId) {
+    return;
+  }
+
+  await client.batch(
+    [
+      { sql: CREATE_WISHLISTS_REBUILD_TABLE, args: [] },
+      { sql: COPY_LATEST_WISHLIST_PER_PUUID, args: [] },
+      { sql: 'DROP TABLE wishlists', args: [] },
+      { sql: 'ALTER TABLE wishlists_rebuild RENAME TO wishlists', args: [] },
+    ],
+    'write'
+  );
+
+  log.info('Migrated wishlists table from (session_id, puuid) to puuid primary key');
+}
 
 // ---------------------------------------------------------------------------
 // Migration from sessions.json
@@ -174,6 +213,9 @@ export function initSessionDb(): Promise<Client> {
         ],
         'write'
       );
+
+      // 1b. Wishlist key migration for pre-existing databases
+      await migrateWishlistsToPuuidKeyIfNeeded(client);
 
       // 2. Expired-session cleanup (SQLITE-06)
       const cleanupResult = await client.execute({
