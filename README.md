@@ -307,6 +307,30 @@ pnpm test:coverage     # run with coverage report
 
 The test suite uses Vitest + MSW v2 for API mocking. Coverage thresholds are strictly enforced.
 
+### Mutation Testing
+
+```bash
+pnpm mutation          # Stryker — reports/mutation/index.html
+```
+
+Coverage tells you which lines ran; mutation testing tells you whether the tests
+would have *noticed* a change. It runs over the same files the coverage config
+includes (`src/lib`, `src/app/api`, `src/middleware.ts`).
+
+Two things to know before running it locally:
+
+- **It's slow.** `@stryker-mutator/vitest-runner` does not support Vitest 5 yet —
+  every mutant survives with `Ran 0.00 tests per mutant`. Until that lands we use
+  Stryker's `command` runner, which boots a fresh Vitest process and runs the
+  whole suite for *each* mutant. A full run is ~45 minutes and saturates four
+  cores. Prefer letting CI do it, or scope it: `pnpm mutation --mutate "src/lib/session*.ts"`.
+- **Incremental mode is on.** `.stryker-incremental.json` lets later runs skip
+  mutants whose code and tests are unchanged. CI caches it; it isn't committed.
+
+Nothing fails the build on mutation score yet (`thresholds.break` is `null`) —
+we're still establishing a baseline. The CI job uploads the HTML report as the
+`mutation-report` artifact.
+
 ---
 
 ## Project Structure

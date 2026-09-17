@@ -63,3 +63,51 @@ jobs:
           # Dummy secrets for test-time — real values live in Vercel env vars
           SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-placeholder-secret-32-chars-long' }}
           HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY || 'ci-placeholder' }}
+
+  mutation:
+    name: Mutation testing
+    runs-on: ubuntu-latest
+    # O command runner roda a suíte inteira por mutante, então isto é lento.
+    # Não bloqueia o merge: stryker.config.json usa thresholds.break = null.
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Sem esse cache toda rodada é uma rodada cheia (~45 min). Com ele, só os
+      # mutantes de arquivos que mudaram são reavaliados. PRs leem o cache que a
+      # última execução na main gravou.
+      - name: Restore Stryker incremental cache
+        uses: actions/cache@v4
+        with:
+          path: .stryker-incremental.json
+          key: stryker-incremental-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-
+
+      - name: Run Stryker
+        run: pnpm mutation
+        env:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-placeholder-secret-32-chars-long' }}
+          HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY || 'ci-placeholder' }}
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 14
