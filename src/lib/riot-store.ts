@@ -31,15 +31,15 @@ const CLIENT_PLATFORM = btoa(JSON.stringify({
   platformChipset: "Unknown",
 }));
 
-/** Cached client version fetched from Riot manifest endpoint */
+/** Cached client version fetched from valorant-api.com */
 let clientVersionCache: string | null = null;
 let clientVersionFetchedAt = 0;
 const VERSION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 /**
- * Fetches the current Valorant client version from Riot's official manifest endpoint.
- * Retries up to 3 times before trying fallback endpoints.
- * Fallback order: riotclient.riotgames.com -> valorant-api.com -> hardcoded fallback
+ * Fetches the current Valorant client version from valorant-api.com.
+ * riotclient.riotgames.com is not used: it no longer resolves in DNS, and every
+ * attempt only added retries and delay before falling back here anyway.
  */
 async function getClientVersion(): Promise<string> {
   const now = Date.now();
@@ -47,35 +47,18 @@ async function getClientVersion(): Promise<string> {
     return clientVersionCache;
   }
 
-  let lastError: Error | null = null;
-
-  // Try riotclient.riotgames.com first (primary source)
-  const primaryVersion = await tryFetchFromRiotManifest();
-  if (primaryVersion) {
-    clientVersionCache = primaryVersion;
-    clientVersionFetchedAt = now;
-    log.info("Updated Client Version (Riot): %s", primaryVersion);
-    return primaryVersion;
-  }
-
-  // Fallback to valorant-api.com (public API with version info)
-  log.warn("Riot manifest endpoint failed, trying valorant-api.com fallback");
   try {
-    const fallbackVersion = await tryFetchFromValorantAPI();
-    if (fallbackVersion) {
-      clientVersionCache = fallbackVersion;
+    const version = await tryFetchFromValorantAPI();
+    if (version) {
+      clientVersionCache = version;
       clientVersionFetchedAt = now;
-      log.info("Updated Client Version (ValorantAPI): %s", fallbackVersion);
-      return fallbackVersion;
+      log.info("Updated Client Version (ValorantAPI): %s", version);
+      return version;
     }
   } catch (error) {
-    log.warn("Valorant-API fallback also failed:", error);
-    lastError = error instanceof Error ? error : new Error(String(error));
-  }
-
-  // All sources failed — throw the last error
-  if (lastError) {
-    throw new Error(`Failed to fetch client version after 3 attempts: ${lastError.message}`);
+    log.warn("Valorant-API version fetch failed:", error);
+    const lastError = error instanceof Error ? error : new Error(String(error));
+    throw new Error(`Failed to fetch client version: ${lastError.message}`);
   }
 
   // Last resort: use hardcoded fallback version
@@ -88,47 +71,7 @@ async function getClientVersion(): Promise<string> {
 }
 
 /**
- * Try to fetch version from Riot's official manifest endpoint
- */
-async function tryFetchFromRiotManifest(): Promise<string | null> {
-  let attempts = 0;
-  const maxAttempts = 3;
-  let lastError: Error | null = null;
-
-  while (attempts < maxAttempts) {
-    try {
-      const response = await fetch("https://riotclient.riotgames.com/riotclient/ux-middleware/bootstrap/manifest", {
-        signal: AbortSignal.timeout(5_000),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Riot's manifest endpoint returns { data: { manifests: { riotClientVersion: "..." } } }
-        const version: string = data.data.manifests.riotClientVersion;
-        return version;
-      } else {
-        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      log.warn(`Failed to fetch from Riot manifest (Attempt ${attempts + 1}/${maxAttempts}):`, error);
-    }
-
-    attempts++;
-    if (attempts < maxAttempts) {
-      // Exponential backoff: 500ms, 1000ms, 2000ms
-      const delay = 500 * Math.pow(2, attempts - 1);
-      await new Promise(r => setTimeout(r, delay));
-    }
-  }
-
-  log.warn("Riot manifest endpoint failed after %d attempts. Last error: %s", maxAttempts, lastError?.message);
-  return null;
-}
-
-/**
  * Try to fetch version from valorant-api.com (public API)
- * This is used as a fallback when Riot's endpoint is unreachable
  */
 async function tryFetchFromValorantAPI(): Promise<string | null> {
   const response = await fetch("https://valorant-api.com/v1/version", {

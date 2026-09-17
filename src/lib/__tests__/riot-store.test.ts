@@ -29,11 +29,10 @@ const MOCK_TOKENS = {
 };
 
 const MOCK_VERSION = "10.02.3.1234";
-const MOCK_MANIFEST_RESPONSE = {
+const MOCK_VERSION_RESPONSE = {
+  status: 200,
   data: {
-    manifests: {
-      riotClientVersion: MOCK_VERSION,
-    },
+    riotClientVersion: MOCK_VERSION,
   },
 };
 
@@ -83,23 +82,18 @@ describe("getStorefront — client version fetching", () => {
     fetchSpy.mockRestore();
   });
 
-  it("fetches client version from Riot manifest endpoint", async () => {
-    fetchSpy.mockResolvedValue(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+  it("fetches client version from valorant-api.com", async () => {
+    fetchSpy.mockResolvedValue(makeOkResponse(MOCK_VERSION_RESPONSE));
 
     await getStorefront(MOCK_TOKENS);
 
-    // Verify manifest endpoint was called
-    const manifestCalls = fetchSpy.mock.calls.filter(
-      (call) => (call[0] as string).includes("riotclient.riotgames.com")
-    );
-    expect(manifestCalls.length).toBeGreaterThan(0);
-    expect(manifestCalls[0][0]).toBe(
-      "https://riotclient.riotgames.com/riotclient/ux-middleware/bootstrap/manifest"
-    );
+    const urls = fetchSpy.mock.calls.map((call) => call[0] as string);
+    expect(urls[0]).toBe("https://valorant-api.com/v1/version");
+    // riotclient.riotgames.com no longer resolves — it must never be called
+    expect(urls.some((url: string) => url.includes("riotclient.riotgames.com"))).toBe(false);
   });
 
-  it("throws error after 3 failed manifest fetch attempts (network error)", async () => {
-    // Mock all fetch calls to fail - both riot manifest and valorant-api fallback
+  it("throws error when the version fetch fails (network error)", async () => {
     fetchSpy.mockRejectedValue(new Error("Network failure"));
 
     const result = getStorefront(MOCK_TOKENS).catch((e) => e);
@@ -108,17 +102,13 @@ describe("getStorefront — client version fetching", () => {
     const error = await result;
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/Failed to fetch client version after 3 attempts/);
+    expect(error.message).toMatch(/Failed to fetch client version/);
   });
 
-  it("throws error on HTTP error responses after retries exhaust", async () => {
-    // Mock riot manifest to return HTTP errors and valorant-api fallback to fail
+  it("throws error on HTTP error responses", async () => {
     fetchSpy.mockImplementation((url: string) => {
-      if (url.includes("riotclient.riotgames.com")) {
-        return Promise.resolve(makeFailResponse(503));
-      }
       if (url.includes("valorant-api.com")) {
-        return Promise.reject(new Error("Valorant-API request failed"));
+        return Promise.resolve(makeFailResponse(503));
       }
       return Promise.resolve(makeOkResponse({}));
     });
@@ -129,7 +119,7 @@ describe("getStorefront — client version fetching", () => {
     const error = await result;
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/Failed to fetch client version after 3 attempts/);
+    expect(error.message).toMatch(/Failed to fetch client version/);
   });
 
   it("uses cached version on subsequent calls within TTL", async () => {
@@ -140,10 +130,10 @@ describe("getStorefront — client version fetching", () => {
     vi.spyOn(globalThis.Date, "now").mockImplementation(() => fakeTime.current);
 
     fetchSpy.mockImplementation((url: string) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
+      if ((url as string).includes("valorant-api.com/v1/version")) {
         manifestCallCount++;
       }
-      return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
     });
 
     // First call - populates cache (time = 0)
@@ -165,10 +155,10 @@ describe("getStorefront — client version fetching", () => {
   it("re-fetches manifest after cache TTL expires", async () => {
     let manifestCallCount = 0;
     fetchSpy.mockImplementation((url: string) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
+      if ((url as string).includes("valorant-api.com/v1/version")) {
         manifestCallCount++;
       }
-      return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
     });
 
     // First call - populates cache
@@ -206,8 +196,8 @@ describe("getWallet — client version header inclusion", () => {
 
   it("fetches client version then wallet data", async () => {
     fetchSpy.mockImplementation((url: string) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
-        return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      if ((url as string).includes("valorant-api.com/v1/version")) {
+        return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
       }
       if ((url as string).includes("/store/v1/wallet/")) {
         return Promise.resolve(makeOkResponse(MOCK_WALLET));
@@ -219,9 +209,9 @@ describe("getWallet — client version header inclusion", () => {
 
     expect(result).toBeDefined();
 
-    // Verify manifest endpoint was called first (for client version)
+    // Verify version endpoint was called first (for client version)
     const manifestCalls = fetchSpy.mock.calls.filter(
-      (call) => (call[0] as string).includes("riotclient.riotgames.com")
+      (call) => (call[0] as string).includes("valorant-api.com/v1/version")
     );
     expect(manifestCalls.length).toBeGreaterThan(0);
   });
@@ -230,8 +220,8 @@ describe("getWallet — client version header inclusion", () => {
     let capturedHeaders: Record<string, string> = {};
 
     fetchSpy.mockImplementation(async (url: string, init?: RequestInit) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
-        return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      if ((url as string).includes("valorant-api.com/v1/version")) {
+        return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
       }
       if ((url as string).includes("/store/v1/wallet/")) {
         capturedHeaders = (init?.headers as Record<string, string>) || {};
