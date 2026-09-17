@@ -187,11 +187,12 @@ cookies never leave infrastructure you control.
    cp .env.example .env
    ```
 
-2. **Generate the two secrets** and paste them into `.env`:
+2. **Generate the three secrets** and paste them into `.env`:
 
    ```bash
    openssl rand -base64 32   # SESSION_SECRET
    openssl rand -hex 32      # ENCRYPTION_KEY (must be 64 hex chars)
+   openssl rand -hex 32      # SRH_TOKEN (bundled Redis REST proxy)
    ```
 
 3. **Build and start:**
@@ -200,13 +201,14 @@ cookies never leave infrastructure you control.
    docker compose up -d --build
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000).
+4. Open [http://localhost:3000](http://localhost:3000). If port 3000 is taken, set `APP_PORT` in `.env`.
 
 What the Docker setup does:
 
 - Multi-stage build on `node:22-bookworm-slim` using Next.js standalone output (no dev dependencies, no Playwright browsers in the image).
 - Runs as an unprivileged user with a read-only root filesystem, all capabilities dropped and `no-new-privileges`.
 - Stores the encrypted SQLite session database in a named volume (`session-data`), so sessions survive rebuilds. Set `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` in `.env` if you prefer a remote database.
+- Runs a bundled Redis plus [serverless-redis-http](https://github.com/hiett/serverless-redis-http) (SRH), which exposes Redis over the Upstash REST API the app uses. This enables the profile/store cache and auth rate limiting without an Upstash account. Neither is published outside the Docker network. Set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in `.env` to use hosted Upstash instead.
 - Publishes the port on `127.0.0.1` only. To expose it on a LAN or the internet, put a TLS reverse proxy in front of it. Production session cookies are marked `Secure`, so browsers only send them over HTTPS (plain `http://localhost` also works). Minimal Caddy example:
 
   ```caddyfile
@@ -215,7 +217,7 @@ What the Docker setup does:
   }
   ```
 
-- Refuses to start if `SESSION_SECRET` or `ENCRYPTION_KEY` is missing, so cookies are never written to disk unencrypted.
+- Refuses to start if `SESSION_SECRET`, `ENCRYPTION_KEY` or `SRH_TOKEN` is missing, so cookies are never written to disk unencrypted.
 
 > **Note:** the "Launch Riot Login" button opens a browser _on the machine running the server_ (via `xdg-open` / `open`), so it does nothing useful inside a container. Use the credentials + MFA login, or log in on any browser and paste the redirect URL / cookies.
 
