@@ -35,6 +35,17 @@ function requiredInProduction(key: string, fallback?: string): string {
  * Validated environment configuration.
  * Import this instead of reading process.env directly.
  */
+/**
+ * Reads TRUSTED_PROXY_HOPS, defaulting to 1 when unset or unparseable.
+ * An explicit 0 is preserved, so it cannot be confused with "not set".
+ */
+function trustedProxyHops(): number {
+  const raw = process.env.TRUSTED_PROXY_HOPS;
+  if (raw === undefined || raw.trim() === "") return 1;
+  const parsed = Math.trunc(Number(raw));
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 1;
+}
+
 export const env = {
   /** Secret key for encrypting session JWTs. Must be set in production. */
   SESSION_SECRET: requiredInProduction("SESSION_SECRET", "dev-only-insecure-secret"),
@@ -73,4 +84,14 @@ export const env = {
    *  Defaults to 10 if not set.
    */
   RATE_LIMIT_REQS_PER_MIN: Number(process.env.RATE_LIMIT_REQS_PER_MIN) || 10,
+
+  /** Optional: Number of reverse proxies in front of the app that append to
+   *  X-Forwarded-For. The rate limiter reads the client IP that many hops from
+   *  the right of the header, so a client-supplied prefix cannot pick its own
+   *  bucket. Defaults to 1 — the hop the closest proxy appended, which is also
+   *  what Next fills in from the socket when no proxy is present.
+   *  Set to 0 to ignore forwarded IP headers entirely (every caller then
+   *  shares one bucket).
+   */
+  TRUSTED_PROXY_HOPS: trustedProxyHops(),
 } as const;

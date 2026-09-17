@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         return addRateLimitHeaders(response, { limit, remaining, reset });
       }
       case "cookie": {
-        const response = await handleCookieAuth(body, request.headers);
+        const response = await handleCookieAuth(body);
         return addRateLimitHeaders(response, { limit, remaining, reset });
       }
       case "multifactor": {

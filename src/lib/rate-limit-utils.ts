@@ -5,11 +5,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { env } from "./env";
 
 /**
  * Extracts the client IP from a Next.js request or headers object.
- * Checks x-forwarded-for first (for proxy/load balancer setups),
- * then x-real-ip, with a fallback to 127.0.0.1.
+ *
+ * Forwarded IP headers are only trusted when TRUSTED_PROXY_HOPS says how many
+ * reverse proxies sit in front of the app. Each of them appends the address it
+ * saw to x-forwarded-for, so the client IP is counted from the *right* of the
+ * list — anything a client prepends itself is ignored. With no trusted proxy
+ * (the default) every forwarded header is ignored and callers share the
+ * 127.0.0.1 fallback bucket.
  */
 export function getClientIP(requestOrHeaders: NextRequest | Headers): string {
   let headers: Headers;
@@ -38,17 +44,30 @@ export function getClientIP(requestOrHeaders: NextRequest | Headers): string {
     return "127.0.0.1";
   }
 
-  // Check x-forwarded-for header (may contain multiple IPs)
-  const forwardedFor = headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const ip = forwardedFor.split(",")[0]?.trim();
-    if (ip) return ip;
-  }
+  const trustedHops = env.TRUSTED_PROXY_HOPS;
 
-  // Check x-real-ip header
-  const realIP = headers.get("x-real-ip");
-  if (realIP) {
-    return realIP.trim();
+  if (trustedHops > 0) {
+    // Check x-forwarded-for header (may contain multiple IPs) and take the hop
+    // the outermost trusted proxy appended — entries to its left are untrusted.
+    const forwardedFor = headers.get("x-forwarded-for");
+    if (forwardedFor) {
+      const hops = forwardedFor
+        .split(",")
+        .map((hop) => hop.trim())
+        .filter(Boolean);
+      // Fewer entries than configured hops means the request did not traverse
+      // the expected proxy chain, so nothing in this request is trustworthy —
+      // share the fallback bucket instead of reading another client-settable
+      // header.
+      return hops[hops.length - trustedHops] ?? "127.0.0.1";
+    }
+
+    // Check x-real-ip header (set, not appended, by the closest proxy).
+    // Only reachable when no x-forwarded-for arrived at all.
+    const realIP = headers.get("x-real-ip");
+    if (realIP) {
+      return realIP.trim();
+    }
   }
 
   // Fallback

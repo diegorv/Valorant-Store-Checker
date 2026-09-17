@@ -216,6 +216,21 @@ describe("POST /api/auth — cookie branch (type: cookie)", () => {
     expect(body.success).toBe(true);
     expect(body.data.puuid).toBe("test-puuid-1234");
   });
+
+  it("consumes exactly one rate limit unit per request", async () => {
+    const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
+    vi.mocked(refreshTokensWithCookies).mockResolvedValue({
+      success: true,
+      tokens: mockTokens,
+      riotCookies: "ssid=new",
+      namedCookies: { raw: "ssid=new" },
+    });
+    const { rateLimit } = await import("@/lib/rate-limiter");
+
+    await POST(makeAuthRequest({ type: "cookie", cookie: "ssid=old" }));
+
+    expect(rateLimit).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("POST /api/auth — browser branch (type: launch_browser)", () => {

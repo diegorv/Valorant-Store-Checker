@@ -143,9 +143,23 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token                                                                                                                     |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Used as a fallback for the two variables above — these are the names the Vercel Marketplace Upstash integration injects             |
 | `RATE_LIMIT_REQS_PER_MIN`  | Max auth requests per minute per IP (default: `10`)                                                                                          |
+| `TRUSTED_PROXY_HOPS`       | Number of reverse proxies in front of the app (default: `1`). See [Rate limiting behind a reverse proxy](#rate-limiting-behind-a-reverse-proxy) |
 | `SRH_TOKEN`                | **Docker only.** Token for the bundled Redis REST proxy. Generate: `openssl rand -hex 32`                                                    |
 
 > **Important:** Without `ENCRYPTION_KEY`, Riot session cookies are stored in plaintext in the database. Setting this variable is strongly recommended for any deployment accessible to others.
+
+### Rate limiting behind a reverse proxy
+
+The auth rate limiter buckets attempts per client IP, which it reads from `X-Forwarded-For`. Clients can send that header themselves, so the app only trusts the hops a proxy you control appended: each proxy appends the address it saw, and `TRUSTED_PROXY_HOPS` says how many entries to count from the **right** of the list.
+
+| Deployment                                       | `TRUSTED_PROXY_HOPS` |
+| ------------------------------------------------ | -------------------- |
+| One reverse proxy (the Caddy example below, nginx) | `1` (default)        |
+| CDN in front of your own proxy (e.g. Cloudflare → Caddy) | `2`            |
+| One reverse proxy (default)                       | `1`                  |
+| Ignore forwarded headers entirely                 | `0`                  |
+
+The default `1` reads the rightmost entry, which only your proxy can write — and when no proxy is present, Next fills that entry in from the socket, so each caller still gets its own bucket. Exposing the app directly with no proxy in front is the one case the default does not cover: there the caller can supply the header itself, so put a proxy in front before exposing it. A request that arrives with fewer hops than you configured (someone reaching your origin past the CDN, say) shares the fallback bucket rather than falling back to a header the caller controls. Setting `0` ignores forwarded headers entirely: nothing is forgeable, but every caller shares one bucket.
 
 ---
 
@@ -211,6 +225,8 @@ What the Docker setup does:
       reverse_proxy 127.0.0.1:3000
   }
   ```
+
+  With a proxy in front, set `TRUSTED_PROXY_HOPS=1` in `.env` so the auth rate limiter buckets by the real client IP — see [Rate limiting behind a reverse proxy](#rate-limiting-behind-a-reverse-proxy).
 
 - Refuses to start if `SESSION_SECRET`, `ENCRYPTION_KEY` or `SRH_TOKEN` is missing, so cookies are never written to disk unencrypted.
 
