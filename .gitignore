@@ -49,7 +49,6 @@ next-env.d.ts
 .planning/
 .playwright-mcp/
 .session-data/
-CLAUDE.md
 ROADMAP_ENCYCLOPEDIA.md
 Improvements.md
 Refactoring Plan.md
@@ -57,6 +56,5 @@ Refactoring Plan.md
 .planning/STATE.md
 playwright-report/
 test-results/
-docs/
 .mcp.json
 AGENTS.md
