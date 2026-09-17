@@ -50,7 +50,7 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 | Category          | Technology                                                                                              |
 | ----------------- | ------------------------------------------------------------------------------------------------------- |
 | **Framework**     | [Next.js 16](https://nextjs.org) (App Router, Server Components)                                        |
-| **Language**      | [TypeScript 5](https://www.typescriptlang.org) (strict + `noUncheckedIndexedAccess`)                    |
+| **Language**      | [TypeScript 6](https://www.typescriptlang.org) (strict + `noUncheckedIndexedAccess`)                    |
 | **Styling**       | [Tailwind CSS v4](https://tailwindcss.com)                                                              |
 | **UI Primitives** | [Radix UI](https://www.radix-ui.com), [Lucide Icons](https://lucide.dev), [CVA](https://cva.style)      |
 | **Validation**    | [Zod](https://zod.dev)                                                                                  |
