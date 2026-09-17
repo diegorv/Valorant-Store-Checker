@@ -95,8 +95,11 @@ function getWishlistCookieName(puuid: string): string {
 /**
  * Read wishlist items from storage (SQLite-first with cookie fallback)
  *
- * This helper ONLY reads - it does not write to SQLite.
- * The calling functions (addToWishlist, removeFromWishlist) handle writes.
+ * Reads, and on a SQLite miss also migrates: it seeds the missing row from the
+ * legacy cookie and clears that cookie. The seed is deliberately a no-op when
+ * the row already exists, so it cannot clobber a concurrent write.
+ *
+ * The item-level mutations belong to addToWishlist / removeFromWishlist.
  *
  * @param puuid Account PUUID
  * @returns Promise resolving to array of wishlist items (empty on any error)
