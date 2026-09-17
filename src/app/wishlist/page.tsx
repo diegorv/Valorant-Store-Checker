@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { WishlistItem } from "@/types/wishlist";
 import type { OwnedSkin } from "@/types/inventory";
@@ -38,6 +38,7 @@ export default function WishlistPage() {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [ownedSet, setOwnedSet] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +53,7 @@ export default function WishlistPage() {
         });
 
         if (wishlistRes.status === 401) {
-          if (!cancelled) redirect("/login");
+          if (!cancelled) router.replace("/login");
           return;
         }
 
@@ -92,7 +93,7 @@ export default function WishlistPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   async function handleRemove(skinUuid: string) {
     // Optimistic update
