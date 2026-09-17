@@ -1,5 +1,7 @@
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createClient, type Client } from "@libsql/client";
+import fs from "fs";
+import path from "path";
 import type { WishlistItem } from "@/types/wishlist";
 
 // ---------------------------------------------------------------------------
@@ -405,5 +407,167 @@ describe("error handling", () => {
     // Error is caught, returns empty array
     expect(result.items).toHaveLength(0);
     expect(result.count).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: concurrent writes (F19 — lost update)
+// ---------------------------------------------------------------------------
+
+describe("concurrent writes", () => {
+  async function storedSkinUuids(puuid: string): Promise<string[]> {
+    const stored = await testClient.execute({
+      sql: "SELECT skins FROM wishlists WHERE puuid = ?",
+      args: [puuid],
+    });
+    if (stored.rows.length === 0) return [];
+    return (JSON.parse(stored.rows[0]!.skins as string) as WishlistItem[]).map(
+      (item) => item.skinUuid,
+    );
+  }
+
+  it("keeps both items when two additions overlap", async () => {
+    const puuid = "test-puuid-concurrent-add";
+
+    await Promise.all([
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-a" })),
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-b" })),
+    ]);
+
+    expect((await storedSkinUuids(puuid)).sort()).toEqual(["skin-a", "skin-b"]);
+  });
+
+  it("drops both items when two removals overlap", async () => {
+    const puuid = "test-puuid-concurrent-remove";
+    await testClient.execute({
+      sql: "INSERT INTO wishlists (puuid, skins) VALUES (?, ?)",
+      args: [
+        puuid,
+        JSON.stringify([
+          makeWishlistItem({ skinUuid: "skin-a" }),
+          makeWishlistItem({ skinUuid: "skin-b" }),
+          makeWishlistItem({ skinUuid: "skin-keep" }),
+        ]),
+      ],
+    });
+
+    await Promise.all([
+      removeFromWishlist(puuid, "skin-a"),
+      removeFromWishlist(puuid, "skin-b"),
+    ]);
+
+    expect(await storedSkinUuids(puuid)).toEqual(["skin-keep"]);
+  });
+
+  it("applies both when an addition overlaps a removal", async () => {
+    const puuid = "test-puuid-concurrent-mixed";
+    await testClient.execute({
+      sql: "INSERT INTO wishlists (puuid, skins) VALUES (?, ?)",
+      args: [puuid, JSON.stringify([makeWishlistItem({ skinUuid: "skin-old" })])],
+    });
+
+    await Promise.all([
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-new" })),
+      removeFromWishlist(puuid, "skin-old"),
+    ]);
+
+    expect(await storedSkinUuids(puuid)).toEqual(["skin-new"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: concurrent writes against a real SQLite file (F19 — no lock failure)
+// ---------------------------------------------------------------------------
+
+describe("concurrent writes on a local SQLite file", () => {
+  const dbPath = path.join(
+    process.cwd(),
+    ".session-data",
+    `test-wishlist-concurrency-${Date.now()}.db`,
+  );
+  let fileClient: Client;
+
+  beforeEach(async () => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test-owned path under .session-data; not user input
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    fileClient = createClient({ url: "file:" + dbPath.replace(/\\/g, "/") });
+    await fileClient.execute(
+      "CREATE TABLE IF NOT EXISTS wishlists (puuid TEXT NOT NULL PRIMARY KEY, skins TEXT NOT NULL)",
+    );
+    mockInitSessionDb.mockResolvedValue(fileClient);
+  });
+
+  afterEach(() => {
+    fileClient.close();
+    fs.rmSync(dbPath, { force: true });
+  });
+
+  it("persists overlapping additions without a SQLITE_BUSY lock failure", async () => {
+    const puuid = "test-puuid-file-concurrent";
+
+    // Rejects (not just a wrong result) if the write path ever contended on
+    // the file lock — the failure mode of an interactive write transaction.
+    await Promise.all([
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-a" })),
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-b" })),
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-c" })),
+    ]);
+
+    const stored = await fileClient.execute({
+      sql: "SELECT skins FROM wishlists WHERE puuid = ?",
+      args: [puuid],
+    });
+    const skinUuids = (
+      JSON.parse(stored.rows[0]!.skins as string) as WishlistItem[]
+    ).map((item) => item.skinUuid);
+
+    expect(skinUuids.sort()).toEqual(["skin-a", "skin-b", "skin-c"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: concurrent writes while the legacy cookie is still being migrated
+// ---------------------------------------------------------------------------
+
+describe("concurrent writes during the legacy cookie migration", () => {
+  it("keeps an overlapping add when the other request seeds SQLite from the cookie", async () => {
+    const puuid = "test-puuid-cookie-migration-race";
+    mockCookiesGet.mockReturnValue({
+      value: JSON.stringify([makeWishlistItem({ skinUuid: "skin-old" })]),
+    });
+
+    // Both requests miss SQLite and fall back to the cookie. Delay the second
+    // seed so it lands AFTER the first request already stored its item: the
+    // seed must not overwrite what the first request wrote.
+    let seeds = 0;
+    const realExecute = testClient.execute.bind(testClient);
+    const slowClient = {
+      execute: async (stmt: unknown) => {
+        const sql =
+          typeof stmt === "string" ? stmt : (stmt as { sql: string }).sql;
+        // The seed is the only statement binding the whole list as one param.
+        if (sql.includes("INSERT INTO wishlists") && sql.includes("VALUES (?, ?)")) {
+          seeds += 1;
+          if (seeds === 2) await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        return realExecute(stmt as never);
+      },
+    } as unknown as Client;
+    mockInitSessionDb.mockResolvedValue(slowClient);
+
+    await Promise.all([
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-a" })),
+      addToWishlist(puuid, makeWishlistItem({ skinUuid: "skin-b" })),
+    ]);
+
+    const stored = await testClient.execute({
+      sql: "SELECT skins FROM wishlists WHERE puuid = ?",
+      args: [puuid],
+    });
+    const skinUuids = (
+      JSON.parse(stored.rows[0]!.skins as string) as WishlistItem[]
+    ).map((item) => item.skinUuid);
+
+    expect(skinUuids.sort()).toEqual(["skin-a", "skin-b", "skin-old"]);
   });
 });

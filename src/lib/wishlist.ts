@@ -13,6 +13,7 @@
  */
 
 import { cookies } from "next/headers";
+import type { ResultSet } from "@libsql/client";
 import type { WishlistData, WishlistItem, WishlistMatchResult } from "@/types/wishlist";
 import { createLogger } from "@/lib/logger";
 import { getCurrentSessionId } from "@/lib/session";
@@ -20,6 +21,67 @@ import { initSessionDb } from "@/lib/session-db";
 const log = createLogger("wishlist");
 
 const WISHLIST_COOKIE_PREFIX = "valorant_wishlist_";
+
+// ---------------------------------------------------------------------------
+// Atomic mutations
+// ---------------------------------------------------------------------------
+// Reading the list into JS, editing it and writing it back loses one of two
+// overlapping requests (two hearts clicked in a row): both read the same list
+// and the second write overwrites the first. Both mutations below are a single
+// statement, so SQLite serialises them and neither result is discarded.
+//
+// An interactive `db.transaction("write")` is NOT used on purpose: session-db
+// creates the client without a busy timeout, so two concurrent BEGINs fail with
+// SQLITE_BUSY on the local file — that trades a silent loss for a 500.
+// ---------------------------------------------------------------------------
+
+/**
+ * Prepend an item (most recent first) unless its skinUuid is already stored.
+ * ?1 = puuid, ?2 = item JSON, ?3 = item skinUuid.
+ */
+const ADD_TO_WISHLIST_SQL = `
+  INSERT INTO wishlists (puuid, skins) VALUES (?1, json_array(json(?2)))
+  ON CONFLICT(puuid) DO UPDATE SET skins = CASE
+    WHEN EXISTS (
+      SELECT 1 FROM json_each(wishlists.skins)
+      WHERE json_extract(value, '$.skinUuid') = ?3
+    ) THEN wishlists.skins
+    ELSE (
+      SELECT json_group_array(json(entry)) FROM (
+        SELECT ?2 AS entry
+        UNION ALL
+        SELECT value AS entry FROM json_each(wishlists.skins)
+      )
+    )
+  END
+  RETURNING skins
+`.trim();
+
+/**
+ * Drop every entry matching a skinUuid, preserving the order of the rest.
+ * ?1 = puuid, ?2 = skinUuid. Returns no row when the account has no wishlist.
+ */
+const REMOVE_FROM_WISHLIST_SQL = `
+  UPDATE wishlists SET skins = (
+    SELECT json_group_array(json(entry)) FROM (
+      SELECT value AS entry FROM json_each(wishlists.skins)
+      WHERE json_extract(value, '$.skinUuid') <> ?2
+    )
+  )
+  WHERE puuid = ?1
+  RETURNING skins
+`.trim();
+
+/**
+ * Turn the `RETURNING skins` row of an atomic mutation into wishlist data.
+ * An empty result set means the account has no stored wishlist.
+ */
+function toWishlistData(result: ResultSet): WishlistData {
+  const skinsJson = result.rows[0]?.skins;
+  const items: WishlistItem[] =
+    typeof skinsJson === "string" ? JSON.parse(skinsJson) : [];
+  return { items, count: items.length };
+}
 
 /**
  * Get the cookie name for a specific account's wishlist
@@ -70,13 +132,17 @@ async function readWishlistItems(puuid: string): Promise<WishlistItem[]> {
       return [];
     }
 
-    // 4. Cookie exists - migrate to SQLite atomically
+    // 4. Cookie exists - seed SQLite with it.
+    // DO NOTHING, not DO UPDATE: this is a one-off seed of a missing row, and
+    // the row may have been created by an overlapping request between the
+    // SELECT above and this write. Overwriting it here would discard that
+    // request's item - the same lost update the mutations below avoid.
     const items: WishlistItem[] = JSON.parse(cookieValue);
     const skinsJson = JSON.stringify(items);
 
     await db.execute({
       sql: `INSERT INTO wishlists (puuid, skins) VALUES (?, ?)
-            ON CONFLICT(puuid) DO UPDATE SET skins = excluded.skins`,
+            ON CONFLICT(puuid) DO NOTHING`,
       args: [puuid, skinsJson],
     });
 
@@ -108,7 +174,8 @@ export async function getWishlist(puuid: string): Promise<WishlistData> {
 
 /**
  * Add item to wishlist (with deduplication)
- * Uses readWishlistItems() helper for reading, writes SQLite only.
+ * Deduplication and the prepend happen inside a single SQLite statement, so an
+ * overlapping request cannot overwrite this one.
  * @param puuid Account PUUID
  * @param item Wishlist item to add
  * @returns Updated wishlist data
@@ -123,38 +190,24 @@ export async function addToWishlist(
     return { items: [], count: 0 };
   }
 
-  // Read current wishlist items using helper (handles SQLite+cookie fallback)
-  const items = await readWishlistItems(puuid);
+  // Seed SQLite from the legacy cookie if it has not been migrated yet.
+  // The returned items are deliberately unused: the statement below computes
+  // the new list inside SQLite, never from a stale in-memory snapshot.
+  await readWishlistItems(puuid);
 
-  // Check if already wishlisted
-  const alreadyExists = items.some(
-    (existing) => existing.skinUuid === item.skinUuid
-  );
-
-  if (alreadyExists) {
-    return { items, count: items.length };
-  }
-
-  // Add new item at the beginning (most recent first) - NO CAP
-  const updated: WishlistItem[] = [item, ...items];
-
-  // Write to SQLite
   const db = await initSessionDb();
-  await db.execute({
-    sql: `INSERT INTO wishlists (puuid, skins) VALUES (?, ?)
-          ON CONFLICT(puuid) DO UPDATE SET skins = excluded.skins`,
-    args: [puuid, JSON.stringify(updated)],
+  const result = await db.execute({
+    sql: ADD_TO_WISHLIST_SQL,
+    args: [puuid, JSON.stringify(item), item.skinUuid],
   });
 
-  return {
-    items: updated,
-    count: updated.length,
-  };
+  return toWishlistData(result);
 }
 
 /**
  * Remove item from wishlist
- * Uses readWishlistItems() helper for reading, writes SQLite only.
+ * The filter runs inside a single SQLite statement, so an overlapping request
+ * cannot overwrite this one.
  * @param puuid Account PUUID
  * @param skinUuid UUID of skin to remove
  * @returns Updated wishlist data
@@ -169,24 +222,18 @@ export async function removeFromWishlist(
     return { items: [], count: 0 };
   }
 
-  // Read current wishlist items using helper (handles SQLite+cookie fallback)
-  const items = await readWishlistItems(puuid);
+  // Seed SQLite from the legacy cookie if it has not been migrated yet.
+  // The returned items are deliberately unused: the statement below computes
+  // the new list inside SQLite, never from a stale in-memory snapshot.
+  await readWishlistItems(puuid);
 
-  // Filter out the item
-  const updated = items.filter((item) => item.skinUuid !== skinUuid);
-
-  // Write to SQLite
   const db = await initSessionDb();
-  await db.execute({
-    sql: `INSERT INTO wishlists (puuid, skins) VALUES (?, ?)
-          ON CONFLICT(puuid) DO UPDATE SET skins = excluded.skins`,
-    args: [puuid, JSON.stringify(updated)],
+  const result = await db.execute({
+    sql: REMOVE_FROM_WISHLIST_SQL,
+    args: [puuid, skinUuid],
   });
 
-  return {
-    items: updated,
-    count: updated.length,
-  };
+  return toWishlistData(result);
 }
 
 /**
