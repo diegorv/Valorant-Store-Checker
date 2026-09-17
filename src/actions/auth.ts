@@ -10,11 +10,14 @@
  * POST /api/auth (which still exists for external consumers).
  */
 
+import { headers } from "next/headers";
 import { completeAuthWithUrl } from "@/lib/riot-auth";
 import { refreshTokensWithCookies } from "@/lib/riot-reauth";
 import { createSession } from "@/lib/session";
 import { addAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limiter";
+import { getClientIP } from "@/lib/rate-limit-utils";
 
 const log = createLogger("Auth Action");
 
@@ -68,6 +71,16 @@ export async function authenticateWithPaste(
   pastedValue: string,
 ): Promise<AuthActionResult> {
   try {
+    // Rate limit check before any call to Riot
+    const ip = getClientIP(await headers());
+    const { success } = await rateLimit(ip);
+    if (!success) {
+      return {
+        success: false,
+        error: "Too many authentication attempts. Please try again later.",
+      };
+    }
+
     const trimmed = pastedValue.trim();
     const isUrl = trimmed.startsWith("http");
 

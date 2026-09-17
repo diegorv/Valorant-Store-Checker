@@ -24,6 +24,10 @@ services:
       UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-http://srh:80}
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-${SRH_TOKEN}}
       RATE_LIMIT_REQS_PER_MIN: ${RATE_LIMIT_REQS_PER_MIN:-10}
+      # Set to 1 when a reverse proxy terminates TLS in front of this container,
+      # so the rate limiter buckets by the real client IP instead of one shared
+      # bucket. See "Rate limiting behind a reverse proxy" in the README.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
     volumes:
       # Encrypted session database (SQLite). Named volume so it survives rebuilds.
       - session-data:/app/data

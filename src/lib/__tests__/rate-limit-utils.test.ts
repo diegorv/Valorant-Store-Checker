@@ -1,16 +1,57 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
-import {
+
+// TRUSTED_PROXY_HOPS is read on every getClientIP() call, so the tests mutate
+// this mock instead of reloading the module.
+const envMock = vi.hoisted(() => ({ TRUSTED_PROXY_HOPS: 0 }));
+
+vi.mock("@/lib/env", () => ({ env: envMock }));
+
+const {
   getClientIP,
   addRateLimitHeaders,
   createRateLimitedResponse,
-} from "@/lib/rate-limit-utils";
+} = await import("@/lib/rate-limit-utils");
 
 // ---------------------------------------------------------------------------
 // getClientIP tests
 // ---------------------------------------------------------------------------
 
-describe("getClientIP", () => {
+beforeEach(() => {
+  envMock.TRUSTED_PROXY_HOPS = 0;
+});
+
+describe("getClientIP with no trusted proxy (default)", () => {
+  it("ignores x-forwarded-for, so every forged value shares one bucket", () => {
+    const forged = new NextRequest("http://localhost", {
+      headers: { "x-forwarded-for": "1.2.3.4" },
+    });
+    const otherForged = new NextRequest("http://localhost", {
+      headers: { "x-forwarded-for": "5.6.7.8, 9.9.9.9" },
+    });
+
+    expect(getClientIP(forged)).toBe("127.0.0.1");
+    expect(getClientIP(otherForged)).toBe(getClientIP(forged));
+  });
+
+  it("ignores x-real-ip as well", () => {
+    const request = new NextRequest("http://localhost", {
+      headers: { "x-real-ip": "9.9.9.9" },
+    });
+    expect(getClientIP(request)).toBe("127.0.0.1");
+  });
+
+  it("neither header present returns fallback 127.0.0.1", () => {
+    const request = new NextRequest("http://localhost");
+    expect(getClientIP(request)).toBe("127.0.0.1");
+  });
+});
+
+describe("getClientIP with one trusted proxy hop", () => {
+  beforeEach(() => {
+    envMock.TRUSTED_PROXY_HOPS = 1;
+  });
+
   it("x-forwarded-for with single IP returns that IP", () => {
     const request = new NextRequest("http://localhost", {
       headers: { "x-forwarded-for": "1.2.3.4" },
@@ -18,18 +59,29 @@ describe("getClientIP", () => {
     expect(getClientIP(request)).toBe("1.2.3.4");
   });
 
-  it("x-forwarded-for with multiple IPs returns the first (leftmost) IP", () => {
+  it("x-forwarded-for with multiple IPs returns the last (rightmost) IP", () => {
     const request = new NextRequest("http://localhost", {
       headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8, 9.9.9.9" },
     });
-    expect(getClientIP(request)).toBe("1.2.3.4");
+    expect(getClientIP(request)).toBe("9.9.9.9");
+  });
+
+  it("a client-supplied prefix cannot change the bucket", () => {
+    const first = new NextRequest("http://localhost", {
+      headers: { "x-forwarded-for": "10.0.0.1, 9.9.9.9" },
+    });
+    const second = new NextRequest("http://localhost", {
+      headers: { "x-forwarded-for": "10.0.0.2, 9.9.9.9" },
+    });
+    expect(getClientIP(first)).toBe("9.9.9.9");
+    expect(getClientIP(second)).toBe("9.9.9.9");
   });
 
   it("x-forwarded-for with whitespace is trimmed", () => {
     const request = new NextRequest("http://localhost", {
-      headers: { "x-forwarded-for": "  1.2.3.4  , 5.6.7.8" },
+      headers: { "x-forwarded-for": "  1.2.3.4  ,  5.6.7.8  " },
     });
-    expect(getClientIP(request)).toBe("1.2.3.4");
+    expect(getClientIP(request)).toBe("5.6.7.8");
   });
 
   it("x-forwarded-for empty string falls through to x-real-ip", () => {
@@ -49,6 +101,44 @@ describe("getClientIP", () => {
   it("neither header present returns fallback 127.0.0.1", () => {
     const request = new NextRequest("http://localhost");
     expect(getClientIP(request)).toBe("127.0.0.1");
+  });
+
+  it("accepts a plain Headers object (as returned by next/headers)", () => {
+    const headers = new Headers({ "x-forwarded-for": "1.2.3.4, 9.9.9.9" });
+    expect(getClientIP(headers)).toBe("9.9.9.9");
+  });
+});
+
+describe("getClientIP with two trusted proxy hops", () => {
+  beforeEach(() => {
+    envMock.TRUSTED_PROXY_HOPS = 2;
+  });
+
+  it("returns the IP two hops from the right", () => {
+    const request = new NextRequest("http://localhost", {
+      headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8, 9.9.9.9" },
+    });
+    expect(getClientIP(request)).toBe("5.6.7.8");
+  });
+
+  it("x-forwarded-for shorter than the configured chain shares the fallback bucket", () => {
+    // The request skipped a trusted hop, so x-real-ip is client-settable here:
+    // reading it would hand every forged value its own bucket.
+    const first = new NextRequest("http://localhost", {
+      headers: { "x-forwarded-for": "9.9.9.9", "x-real-ip": "10.0.0.1" },
+    });
+    const second = new NextRequest("http://localhost", {
+      headers: { "x-forwarded-for": "9.9.9.9", "x-real-ip": "10.0.0.2" },
+    });
+    expect(getClientIP(first)).toBe("127.0.0.1");
+    expect(getClientIP(second)).toBe("127.0.0.1");
+  });
+
+  it("x-real-ip is still used when no x-forwarded-for arrives at all", () => {
+    const request = new NextRequest("http://localhost", {
+      headers: { "x-real-ip": "8.8.8.8" },
+    });
+    expect(getClientIP(request)).toBe("8.8.8.8");
   });
 });
 
