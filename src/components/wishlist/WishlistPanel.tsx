@@ -73,6 +73,7 @@ export function WishlistPanel({
   // Fetch wishlist when panel opens
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch when the panel opens (sets loading state first)
       fetchWishlist();
     }
   }, [isOpen, fetchWishlist]);

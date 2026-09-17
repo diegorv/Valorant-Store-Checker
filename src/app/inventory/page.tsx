@@ -40,6 +40,7 @@ export default function InventoryPage() {
   useEffect(() => {
     // Use cache by default — only force-refresh when navigating from store
     // (where a purchase may have happened and user explicitly wants fresh data)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch on mount (sets loading state first)
     fetchInventory(false);
   }, []);
 
