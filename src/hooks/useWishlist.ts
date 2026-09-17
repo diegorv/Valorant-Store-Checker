@@ -25,42 +25,51 @@ export function useWishlist(initialUuids: string[]) {
 
   const toggleWishlist = useCallback(
     async (skinUuid: string, item: StoreItem) => {
-      const wasWishlisted = wishlistedUuids.includes(skinUuid);
+      const key = skinUuid.toLowerCase();
+      const wasWishlisted = wishlistedUuids.some((id) => id.toLowerCase() === key);
 
       // Optimistic update
       setWishlistedUuids((prev) =>
-        wasWishlisted ? prev.filter((id) => id !== skinUuid) : [...prev, skinUuid],
+        wasWishlisted
+          ? prev.filter((id) => id.toLowerCase() !== key)
+          : [...prev, skinUuid],
       );
 
       try {
-        if (wasWishlisted) {
-          await fetch("/api/wishlist", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ skinUuid }),
-          });
-        } else {
-          await fetch("/api/wishlist", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              skinUuid: item.uuid,
-              displayName: item.displayName,
-              displayIcon: item.displayIcon,
-              tierColor: item.tierColor,
-              addedAt: new Date().toISOString(),
-            }),
-          });
+        const response = wasWishlisted
+          ? await fetch("/api/wishlist", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ skinUuid }),
+            })
+          : await fetch("/api/wishlist", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                skinUuid: item.uuid,
+                displayName: item.displayName,
+                displayIcon: item.displayIcon,
+                tierColor: item.tierColor,
+                addedAt: new Date().toISOString(),
+              }),
+            });
+
+        if (!response.ok) {
+          throw new Error(`Failed to toggle wishlist: ${response.statusText}`);
         }
       } catch (err) {
         console.error("Wishlist toggle error:", err);
-        // Rollback on failure
-        setWishlistedUuids(initialUuids);
+        // Rollback only this item, preserving every other successful toggle
+        setWishlistedUuids((prev) =>
+          wasWishlisted
+            ? [...prev.filter((id) => id.toLowerCase() !== key), skinUuid]
+            : prev.filter((id) => id.toLowerCase() !== key),
+        );
       }
     },
-    [wishlistedUuids, initialUuids],
+    [wishlistedUuids],
   );
 
   return { wishlistedUuids, isWishlisted, toggleWishlist };
