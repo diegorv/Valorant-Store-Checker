@@ -65,7 +65,7 @@ describe("registerAuthenticatedSession", () => {
     const after = Date.now();
 
     expect(addAccount).toHaveBeenCalledTimes(1);
-    const [entry] = vi.mocked(addAccount).mock.calls[0];
+    const [entry] = vi.mocked(addAccount).mock.calls[0]!;
 
     expect(entry).toMatchObject({
       puuid: "puuid-1234",
@@ -80,7 +80,7 @@ describe("registerAuthenticatedSession", () => {
   it("passes the full token set — including country and cookies — as the stored session", async () => {
     await registerAuthenticatedSession(tokens, "riot-cookie-string");
 
-    const [, session] = vi.mocked(addAccount).mock.calls[0];
+    const [, session] = vi.mocked(addAccount).mock.calls[0]!;
     expect(session).toEqual({
       accessToken: "access-tok",
       entitlementsToken: "ent-tok",
@@ -98,7 +98,7 @@ describe("registerAuthenticatedSession", () => {
     // Collapsing them would leak credentials into the accounts cookie.
     await registerAuthenticatedSession(tokens, "riot-cookie-string");
 
-    const [entry] = vi.mocked(addAccount).mock.calls[0];
+    const [entry] = vi.mocked(addAccount).mock.calls[0]!;
     expect(entry).not.toHaveProperty("accessToken");
     expect(entry).not.toHaveProperty("entitlementsToken");
     expect(entry).not.toHaveProperty("riotCookies");
@@ -129,7 +129,7 @@ describe("registerAuthenticatedSession", () => {
     await registerAuthenticatedSession(minimal, "");
 
     expect(createSession).toHaveBeenCalledWith({ ...minimal, riotCookies: "" });
-    const [entry, session] = vi.mocked(addAccount).mock.calls[0];
+    const [entry, session] = vi.mocked(addAccount).mock.calls[0]!;
     expect(entry.gameName).toBeUndefined();
     expect(entry.tagLine).toBeUndefined();
     expect(session.country).toBeUndefined();
