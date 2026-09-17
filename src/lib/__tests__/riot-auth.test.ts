@@ -113,20 +113,24 @@ describe("authenticateRiotAccount", () => {
     }
   });
 
-  it("auth error response: returns success=false with error field", async () => {
+  it("auth error response: reports the reason Riot sent, not a generic message", async () => {
     server.use(
       http.put(RIOT_AUTH_URL, () => {
-        return HttpResponse.json({ type: "error", error: "auth_failure" });
+        return HttpResponse.json({
+          type: "auth",
+          error: "auth_failure",
+          country: "usa",
+        });
       }),
     );
 
     const { authenticateRiotAccount } = await import("@/lib/riot-auth");
     const result = await authenticateRiotAccount("user", "pass");
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect("error" in result).toBe(true);
-    }
+    expect(result).toMatchObject({
+      success: false,
+      error: "Riot Auth Error: auth_failure (Region: usa)",
+    });
   });
 });
 

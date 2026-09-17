@@ -189,9 +189,37 @@ describe("AuthResponseSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("invalid type value (not response/multifactor): fails validation", () => {
-    const result = AuthResponseSchema.safeParse({ type: "invalid" });
+  it("type outside response/multifactor: passes and keeps error/country", () => {
+    // Riot reports a rejected password or a throttled IP with HTTP 200 and a
+    // type of its own, so the schema must let it through for riot-auth.ts to
+    // turn `error` into a real message instead of the generic fallback.
+    const result = AuthResponseSchema.safeParse({
+      type: "auth",
+      error: "auth_failure",
+      country: "usa",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.error).toBe("auth_failure");
+      expect(result.data.country).toBe("usa");
+    }
+  });
+
+  it("empty string for type: fails validation", () => {
+    const result = AuthResponseSchema.safeParse({ type: "" });
     expect(result.success).toBe(false);
+  });
+
+  it("null error/country: still parses instead of failing the whole payload", () => {
+    // These two fields are not verified against the live API, so a `null` must
+    // not reject an otherwise usable response — that would send a successful
+    // login back to the generic "Invalid auth response from Riot".
+    const result = AuthResponseSchema.safeParse({
+      type: "response",
+      error: null,
+      country: null,
+    });
+    expect(result.success).toBe(true);
   });
 
   it("negative expiresAt: fails validation", () => {

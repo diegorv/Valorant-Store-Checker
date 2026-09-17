@@ -45,7 +45,16 @@ export const UserInfoSchema = z
   .passthrough();
 
 export const AuthResponseSchema = z.object({
-  type: z.enum(["response", "multifactor"]),
+  // Riot answers HTTP 200 with types outside of `response`/`multifactor` when
+  // the credentials are rejected or the IP is throttled, so the type stays open
+  // and `riot-auth.ts` branches on the two known values instead. The exact type
+  // string Riot sends on failure is not pinned down here on purpose.
+  type: z.string().min(1),
+  // Failure details `riot-auth.ts` reads off the response. Declared so `.strip()`
+  // keeps them; `nullish` because rejecting the whole payload over a `null` here
+  // would put us back on the generic message this schema exists to avoid.
+  error: z.string().nullish(),
+  country: z.string().nullish(),
   accessToken: z.string().min(1).optional(),
   idToken: z.string().min(1).optional(),
   expiresAt: z.number().positive().optional(),
