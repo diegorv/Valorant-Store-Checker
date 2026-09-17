@@ -259,6 +259,21 @@ describe("getSessionFromStore — encrypted riotCookies decryption", () => {
     expect(result!.riotCookies).toBe("original-cookie-value");
   });
 
+  it("encrypts riotCookies on save and decrypts them on get", async () => {
+    const sessionId = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
+    await saveSessionToStore(sessionId, { ...validSession, riotCookies: "original-cookie-value" }, 3600);
+
+    const row = await testClient.execute({
+      sql: "SELECT data FROM sessions WHERE id = ?",
+      args: [sessionId],
+    });
+    const stored = JSON.parse(row.rows[0]!.data as string) as Record<string, unknown>;
+    expect(stored.riotCookies).not.toBe("original-cookie-value");
+
+    const result = await getSessionFromStore(sessionId);
+    expect(result!.riotCookies).toBe("original-cookie-value");
+  });
+
   it("returns null when ciphertext is corrupted (decryption fails)", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
