@@ -48,20 +48,31 @@ describe("x-request-id injection", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: x-request-id passthrough
+// Tests: client-supplied x-request-id is ignored
 // ---------------------------------------------------------------------------
 
-describe("x-request-id passthrough", () => {
-  it("preserves existing x-request-id when already present in request", () => {
+describe("client-supplied x-request-id", () => {
+  it("replaces a client x-request-id on a protected route", () => {
     const request = new NextRequest("http://localhost/store", {
       headers: new Headers({ "x-request-id": "existing-id-67890" }),
     });
 
     const response = middleware(request);
 
-    // x-request-id should be preserved (not replaced)
-    // The middleware sets its own generated ID, but downstream gets forwarded headers
+    // The client value never reaches the logger — the server-generated one wins
     expect(response.headers.get("x-request-id")).toBe(fixedRequestId);
+  });
+
+  it("replaces a client x-request-id on an unprotected API route", () => {
+    const request = new NextRequest("http://localhost/api/wishlist", {
+      headers: new Headers({ "x-request-id": "existing-id-67890" }),
+    });
+
+    const response = middleware(request);
+
+    // NextResponse.next({ request: { headers } }) encodes the overridden request
+    // headers so we can assert what the route handler will actually read.
+    expect(response.headers.get("x-middleware-request-x-request-id")).toBe(fixedRequestId);
   });
 });
 

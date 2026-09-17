@@ -86,6 +86,8 @@ export function LoginForm() {
                 value={pastedValue}
                 onChange={(e) => setPastedValue(e.target.value)}
                 placeholder="https://playvalorant.com... OR ssid=...; tdid=..."
+                autoComplete="off"
+                spellCheck={false}
                 required
                 disabled={isPending}
                 className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all font-mono text-sm"

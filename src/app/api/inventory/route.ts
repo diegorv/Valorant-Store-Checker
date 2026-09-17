@@ -53,11 +53,12 @@ export const GET = withSession(async (request: NextRequest, session, reqId?: str
         );
       }
 
+      // The upstream error stays in the server log above — the client only needs
+      // the generic message, and echoing the raw Riot response leaks its shape.
       return NextResponse.json(
         {
           error: "Failed to fetch inventory data",
           code: "RIOT_API_ERROR",
-          details: fetchError instanceof Error ? fetchError.message : String(fetchError),
         },
         { status: 500 }
       );

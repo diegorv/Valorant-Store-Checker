@@ -25,13 +25,13 @@ const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory"
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only generate request ID for protected/API routes — static assets pass through
-  const needsRequestId = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
-  const requestId = needsRequestId ? crypto.randomUUID() : undefined;
+  // Always generate the request ID here — a client-supplied x-request-id is
+  // overwritten, so two distinct requests never share a log correlation id.
+  const requestId = crypto.randomUUID();
 
   // Forward in request headers for downstream
   const requestHeaders = new Headers(request.headers);
-  if (requestId) requestHeaders.set("x-request-id", requestId);
+  requestHeaders.set("x-request-id", requestId);
 
   // Check if session cookie exists
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
@@ -45,7 +45,7 @@ export function middleware(request: NextRequest) {
   if (!hasSession && PROTECTED_ROUTES.some((route) => pathname.startsWith(route))) {
     const loginUrl = new URL("/login", request.url);
     const redirectResponse = NextResponse.redirect(loginUrl);
-    if (requestId) redirectResponse.headers.set("x-request-id", requestId);
+    redirectResponse.headers.set("x-request-id", requestId);
     return redirectResponse;
   }
 

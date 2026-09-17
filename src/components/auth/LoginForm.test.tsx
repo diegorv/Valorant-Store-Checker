@@ -64,6 +64,14 @@ describe("LoginForm", () => {
       expect(input).toBeTruthy();
     });
 
+    it("keeps the paste input visible but out of autocomplete and spellcheck", () => {
+      render(<LoginForm />);
+      const input = document.querySelector("input#pastedValue") as HTMLInputElement;
+      expect(input.getAttribute("type")).toBe("text");
+      expect(input.getAttribute("autocomplete")).toBe("off");
+      expect(input.getAttribute("spellcheck")).toBe("false");
+    });
+
     it("displays the submit button", () => {
       render(<LoginForm />);
       const buttons = document.querySelectorAll("button");
