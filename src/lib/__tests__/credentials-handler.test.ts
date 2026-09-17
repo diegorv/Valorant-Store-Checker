@@ -8,10 +8,6 @@ vi.mock("@/lib/riot-auth", () => ({
   authenticateRiotAccount: vi.fn(),
 }));
 
-vi.mock("@/lib/browser-auth", () => ({
-  authenticateWithBrowser: vi.fn(),
-}));
-
 vi.mock("@/lib/session", () => ({
   createSession: vi.fn().mockResolvedValue(undefined),
 }));

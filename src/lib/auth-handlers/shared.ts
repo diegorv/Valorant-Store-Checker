@@ -31,9 +31,6 @@ export const AuthBodySchema = z.discriminatedUnion("type", [
     type: z.literal("cookie"),
     cookie: z.string(),
   }),
-  z.object({
-    type: z.literal("launch_browser"),
-  }),
 ]);
 
 export type AuthBody = z.infer<typeof AuthBodySchema>;

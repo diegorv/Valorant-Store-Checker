@@ -15,11 +15,6 @@ vi.mock("@/lib/riot-reauth", () => ({
   refreshTokensWithCookies: vi.fn(),
 }));
 
-vi.mock("@/lib/browser-auth", () => ({
-  authenticateWithBrowser: vi.fn(),
-  launchBasicBrowser: vi.fn(),
-}));
-
 vi.mock("@/lib/session", () => ({
   createSession: vi.fn().mockResolvedValue(undefined),
   getSession: vi.fn(),
@@ -132,16 +127,11 @@ describe("POST /api/auth — credentials branch (type: auth)", () => {
     expect(body.requiresMfa).toBe(true);
   });
 
-  it("failure: standard auth fails + browser auth fails → 401", async () => {
+  it("failure: standard auth fails → 401", async () => {
     const { authenticateRiotAccount } = await import("@/lib/riot-auth");
-    const { authenticateWithBrowser } = await import("@/lib/browser-auth");
     vi.mocked(authenticateRiotAccount).mockResolvedValue({
       success: false,
       error: "auth_failure",
-    });
-    vi.mocked(authenticateWithBrowser).mockResolvedValue({
-      success: false,
-      error: "browser_failed",
     });
 
     const res = await POST(
@@ -233,24 +223,14 @@ describe("POST /api/auth — cookie branch (type: cookie)", () => {
   });
 });
 
-describe("POST /api/auth — browser branch (type: launch_browser)", () => {
-  it("success: launchBasicBrowser returns success → 200", async () => {
-    const { launchBasicBrowser } = await import("@/lib/browser-auth");
-    vi.mocked(launchBasicBrowser).mockResolvedValue({
-      success: true,
-    });
-
-    const res = await POST(makeAuthRequest({ type: "launch_browser" }));
-
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.success).toBe(true);
-  });
-});
-
 describe("POST /api/auth — invalid body", () => {
   it("unknown type returns 400 (Zod discriminatedUnion validation fails)", async () => {
     const res = await POST(makeAuthRequest({ type: "invalid" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("launch_browser type returns 400 (variant removed from the schema)", async () => {
+    const res = await POST(makeAuthRequest({ type: "launch_browser" }));
     expect(res.status).toBe(400);
   });
 });

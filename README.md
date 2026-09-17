@@ -243,7 +243,7 @@ Then start with `docker compose up -d` (without `--build`).
 
 > **Tip:** the same setup works as a production-like local environment on your own machine — `docker compose up -d --build` gives you the app plus Redis, so caching and rate limiting behave the same as on a hosted deployment. Use `docker compose logs -f app` to follow the server logs (set `LOG_LEVEL=info` or `debug` in `.env` for more detail) and `docker compose down` to stop it.
 
-> **Note:** the "Launch Riot Login" button opens a browser _on the machine running the server_ (via `xdg-open` / `open`), so it does nothing useful inside a container. Use the credentials + MFA login, or log in on any browser and paste the redirect URL / cookies.
+> **Note:** the "Launch Riot Login" button opens the Riot login page in a new tab of _your own_ browser (client-side `window.open`); the server never launches a browser. Log in there and paste the redirect URL / cookies back into the form, or use the credentials + MFA login.
 
 ### Turso Database (Optional but Recommended)
 
@@ -332,7 +332,7 @@ src/
 │   ├── layout/               # Header, MobileNav, AccountSwitcher
 │   └── ui/                   # Button, LoadingSkeleton, SectionErrorBoundary
 └── lib/
-    ├── auth-handlers/        # credentials, mfa, url, cookie, browser, shared
+    ├── auth-handlers/        # credentials, mfa, url, cookie, shared
     ├── schemas/              # Zod schemas (session, riot-auth, storefront, henrik)
     ├── __tests__/            # 101 Vitest tests across 8 files
     ├── session.ts            # getCachedSession (RSC-safe)
