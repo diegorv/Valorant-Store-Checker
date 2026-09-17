@@ -18,10 +18,12 @@ vi.mock("@/lib/session-db", () => ({
   initSessionDb: vi.fn(async () => testClient),
 }));
 
+// Mutable so tests can swap in a malformed key (the `mock` prefix is what vi.mock's
+// hoisting allows a factory to reference)
+const mockEnv: { ENCRYPTION_KEY: string | undefined } = { ENCRYPTION_KEY: TEST_ENCRYPTION_KEY };
+
 vi.mock("@/lib/env", () => ({
-  env: {
-    ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
-  },
+  env: mockEnv,
 }));
 
 // Import AFTER mock declarations (vi.mock is hoisted, so this is safe)
@@ -31,6 +33,7 @@ const {
   deleteSessionFromStore,
   cleanupExpiredSessions,
   refreshSessionExpiration,
+  SessionEncryptionUnavailableError,
 } = await import("@/lib/session-store");
 
 const { initSessionDb } = await import("@/lib/session-db");
@@ -296,5 +299,49 @@ describe("getSessionFromStore — encrypted riotCookies decryption", () => {
       expect.stringContaining("Failed to decrypt"),
       expect.any(Error),
     );
+  });
+});
+
+describe("saveSessionToStore — malformed ENCRYPTION_KEY", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    mockEnv.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["wrong length", "a".repeat(63)],
+    ["64 non-hex characters", "z".repeat(64)],
+  ])("refuses to store riotCookies with a key of %s", async (_label, badKey) => {
+    mockEnv.ENCRYPTION_KEY = badKey;
+    const sessionId = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+
+    await expect(
+      saveSessionToStore(sessionId, { ...validSession, riotCookies: "secret-cookie-value" }, 3600),
+    ).rejects.toThrow(SessionEncryptionUnavailableError);
+
+    // Nothing was written — no plaintext cookie in the DB
+    const row = await testClient.execute({
+      sql: "SELECT data FROM sessions WHERE id = ?",
+      args: [sessionId],
+    });
+    expect(row.rows.length).toBe(0);
+  });
+
+  it("still saves sessions without riotCookies", async () => {
+    mockEnv.ENCRYPTION_KEY = "a".repeat(63);
+    const sessionId = "abababab-abab-abab-abab-abababababab";
+
+    await saveSessionToStore(sessionId, validSession, 3600);
+
+    const row = await testClient.execute({
+      sql: "SELECT data FROM sessions WHERE id = ?",
+      args: [sessionId],
+    });
+    expect(row.rows.length).toBe(1);
+    expect(JSON.parse(row.rows[0]!.data as string).accessToken).toBe("test-access-token");
   });
 });

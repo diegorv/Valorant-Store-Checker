@@ -10,6 +10,9 @@ const log = createLogger('session-store');
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** 32 bytes (256 bits) rendered as hex — the only shape AES-256-GCM accepts here */
+const ENCRYPTION_KEY_REGEX = /^[0-9a-f]{64}$/i;
+
 function isValidUuid(id: string): boolean {
   return UUID_REGEX.test(id);
 }
@@ -30,6 +33,14 @@ export class InvalidSessionIdError extends TypeError {
   }
 }
 
+/** Thrown when Riot cookies must be stored but ENCRYPTION_KEY is unusable — never store them in plaintext */
+export class SessionEncryptionUnavailableError extends Error {
+  constructor() {
+    super('Refusing to store Riot cookies: ENCRYPTION_KEY must be exactly 64 hexadecimal characters (32 bytes)');
+    this.name = 'SessionEncryptionUnavailableError';
+  }
+}
+
 // Use global to survive Next.js hot-reload — warning fires once per process
 const _warnedKeys: Record<string, boolean> = (global as unknown as Record<string, Record<string, boolean>>).__sessionStoreWarnedKeys ?? {};
 (global as unknown as Record<string, Record<string, boolean>>).__sessionStoreWarnedKeys = _warnedKeys;
@@ -46,7 +57,7 @@ function getEncryptionKey(): string | null {
     }
     return '0'.repeat(64);
   }
-  if (key.length !== 64) {
+  if (!ENCRYPTION_KEY_REGEX.test(key)) {
     if (!_warnedKeys['badKey']) {
       log.error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
       _warnedKeys['badKey'] = true;
@@ -64,7 +75,9 @@ export async function saveSessionToStore(sessionId: string, data: SessionData, m
   const key = getEncryptionKey();
   let serialized: string;
 
-  if (key && data.riotCookies) {
+  if (data.riotCookies) {
+    // Fail closed: without a usable key the cookies would land in the DB as plaintext
+    if (!key) throw new SessionEncryptionUnavailableError();
     const toStore = { ...data, riotCookies: encrypt(data.riotCookies, key) };
     serialized = JSON.stringify(toStore);
   } else {
