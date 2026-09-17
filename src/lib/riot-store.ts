@@ -34,7 +34,16 @@ const CLIENT_PLATFORM = btoa(JSON.stringify({
 /** Cached client version fetched from valorant-api.com */
 let clientVersionCache: string | null = null;
 let clientVersionFetchedAt = 0;
+/** TTL that applies to the value currently in the cache — depends on where it came from */
+let clientVersionCacheTtl = 0;
 const VERSION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+/**
+ * The hardcoded fallback is cached far more briefly than a real version: it is a guess,
+ * not an answer. A one-second blip upstream must not pin it for the full hour, so it
+ * expires after a minute and the next request tries valorant-api.com again. The minute
+ * still stands between a prolonged outage and one external call per store request.
+ */
+const VERSION_FALLBACK_CACHE_TTL = 60 * 1000; // 1 minute
 
 /**
  * Fetches the current Valorant client version from valorant-api.com.
@@ -43,7 +52,7 @@ const VERSION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
  */
 async function getClientVersion(): Promise<string> {
   const now = Date.now();
-  if (clientVersionCache && now - clientVersionFetchedAt < VERSION_CACHE_TTL) {
+  if (clientVersionCache && now - clientVersionFetchedAt < clientVersionCacheTtl) {
     return clientVersionCache;
   }
 
@@ -52,6 +61,7 @@ async function getClientVersion(): Promise<string> {
     if (version) {
       clientVersionCache = version;
       clientVersionFetchedAt = now;
+      clientVersionCacheTtl = VERSION_CACHE_TTL;
       log.info("Updated Client Version (ValorantAPI): %s", version);
       return version;
     }
@@ -65,6 +75,7 @@ async function getClientVersion(): Promise<string> {
   log.warn("All version sources failed, using hardcoded fallback: %s", hardcodedFallback);
   clientVersionCache = hardcodedFallback;
   clientVersionFetchedAt = now;
+  clientVersionCacheTtl = VERSION_FALLBACK_CACHE_TTL;
   return hardcodedFallback;
 }
 

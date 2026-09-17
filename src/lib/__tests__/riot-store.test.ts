@@ -185,6 +185,92 @@ describe("getStorefront — client version fetching", () => {
   });
 });
 
+describe("client version cache — fallback TTL is shorter than the success TTL", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let getStorefront: typeof import("@/lib/riot-store").getStorefront;
+
+  /** Version fetches succeed while true; each call records the header the storefront saw. */
+  const state = { versionUp: true, versionCalls: 0, sentVersions: [] as (string | undefined)[] };
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    vi.resetModules();
+
+    state.versionUp = true;
+    state.versionCalls = 0;
+    state.sentVersions = [];
+
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("valorant-api.com/v1/version")) {
+        state.versionCalls++;
+        return state.versionUp
+          ? Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE))
+          : Promise.reject(new Error("Network failure"));
+      }
+      const headers = (init?.headers as Record<string, string>) || {};
+      state.sentVersions.push(headers["X-Riot-ClientVersion"]);
+      return Promise.resolve(makeOkResponse({}));
+    });
+
+    const mod = await import("@/lib/riot-store");
+    getStorefront = mod.getStorefront;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    fetchSpy.mockRestore();
+  });
+
+  /** The version header the last storefront request carried. */
+  function lastSentVersion(): string | undefined {
+    return state.sentVersions[state.sentVersions.length - 1];
+  }
+
+  it("retries the API one minute after a transient failure instead of waiting the full hour", async () => {
+    state.versionUp = false;
+    await getStorefront(MOCK_TOKENS);
+    expect(lastSentVersion()).toBe(HARDCODED_FALLBACK_VERSION);
+
+    // The API recovers; a minute later — far inside the one-hour success TTL — it is asked again.
+    state.versionUp = true;
+    vi.setSystemTime(Date.now() + 60 * 1000 + 1);
+    await getStorefront(MOCK_TOKENS);
+
+    expect(state.versionCalls).toBe(2);
+    expect(lastSentVersion()).toBe(MOCK_VERSION);
+  });
+
+  it("still caches the fallback within its own short TTL", async () => {
+    state.versionUp = false;
+    await getStorefront(MOCK_TOKENS);
+
+    state.versionUp = true;
+    vi.setSystemTime(Date.now() + 30 * 1000);
+    await getStorefront(MOCK_TOKENS);
+
+    expect(state.versionCalls).toBe(1);
+    expect(lastSentVersion()).toBe(HARDCODED_FALLBACK_VERSION);
+  });
+
+  it("keeps the long TTL for a version that was fetched successfully", async () => {
+    await getStorefront(MOCK_TOKENS);
+    expect(state.versionCalls).toBe(1);
+
+    // Past the fallback TTL, but nowhere near the success TTL: no refetch.
+    vi.setSystemTime(Date.now() + 60 * 1000 + 1);
+    await getStorefront(MOCK_TOKENS);
+    expect(state.versionCalls).toBe(1);
+
+    // Now 59 minutes in — just under the hour, so still cached.
+    vi.setSystemTime(Date.now() + 58 * 60 * 1000);
+    await getStorefront(MOCK_TOKENS);
+    expect(state.versionCalls).toBe(1);
+    expect(lastSentVersion()).toBe(MOCK_VERSION);
+  });
+});
+
 describe("getWallet — client version header inclusion", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
   let getWallet: typeof import("@/lib/riot-store").getWallet;
