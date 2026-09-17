@@ -41,7 +41,7 @@ function getWishlistCookieName(puuid: string): string {
  */
 async function readWishlistItems(puuid: string): Promise<WishlistItem[]> {
   try {
-    // 1. Get session ID
+    // 1. Require an authenticated session
     const sessionId = await getCurrentSessionId();
     if (!sessionId) {
       return [];
@@ -50,8 +50,8 @@ async function readWishlistItems(puuid: string): Promise<WishlistItem[]> {
     // 2. Read from SQLite first
     const db = await initSessionDb();
     const result = await db.execute({
-      sql: "SELECT skins FROM wishlists WHERE session_id = ? AND puuid = ?",
-      args: [sessionId, puuid],
+      sql: "SELECT skins FROM wishlists WHERE puuid = ?",
+      args: [puuid],
     });
 
     if (result.rows.length > 0) {
@@ -75,9 +75,9 @@ async function readWishlistItems(puuid: string): Promise<WishlistItem[]> {
     const skinsJson = JSON.stringify(items);
 
     await db.execute({
-      sql: `INSERT INTO wishlists (session_id, puuid, skins) VALUES (?, ?, ?)
-            ON CONFLICT(session_id, puuid) DO UPDATE SET skins = excluded.skins`,
-      args: [sessionId, puuid, skinsJson],
+      sql: `INSERT INTO wishlists (puuid, skins) VALUES (?, ?)
+            ON CONFLICT(puuid) DO UPDATE SET skins = excluded.skins`,
+      args: [puuid, skinsJson],
     });
 
     // 5. Delete legacy cookie ONLY after successful write
@@ -117,6 +117,7 @@ export async function addToWishlist(
   puuid: string,
   item: WishlistItem
 ): Promise<WishlistData> {
+  // Require an authenticated session
   const sessionId = await getCurrentSessionId();
   if (!sessionId) {
     return { items: [], count: 0 };
@@ -140,9 +141,9 @@ export async function addToWishlist(
   // Write to SQLite
   const db = await initSessionDb();
   await db.execute({
-    sql: `INSERT INTO wishlists (session_id, puuid, skins) VALUES (?, ?, ?)
-          ON CONFLICT(session_id, puuid) DO UPDATE SET skins = excluded.skins`,
-    args: [sessionId, puuid, JSON.stringify(updated)],
+    sql: `INSERT INTO wishlists (puuid, skins) VALUES (?, ?)
+          ON CONFLICT(puuid) DO UPDATE SET skins = excluded.skins`,
+    args: [puuid, JSON.stringify(updated)],
   });
 
   return {
@@ -162,6 +163,7 @@ export async function removeFromWishlist(
   puuid: string,
   skinUuid: string
 ): Promise<WishlistData> {
+  // Require an authenticated session
   const sessionId = await getCurrentSessionId();
   if (!sessionId) {
     return { items: [], count: 0 };
@@ -176,9 +178,9 @@ export async function removeFromWishlist(
   // Write to SQLite
   const db = await initSessionDb();
   await db.execute({
-    sql: `INSERT INTO wishlists (session_id, puuid, skins) VALUES (?, ?, ?)
-          ON CONFLICT(session_id, puuid) DO UPDATE SET skins = excluded.skins`,
-    args: [sessionId, puuid, JSON.stringify(updated)],
+    sql: `INSERT INTO wishlists (puuid, skins) VALUES (?, ?)
+          ON CONFLICT(puuid) DO UPDATE SET skins = excluded.skins`,
+    args: [puuid, JSON.stringify(updated)],
   });
 
   return {

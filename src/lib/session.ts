@@ -238,7 +238,7 @@ export async function getSession(): Promise<SessionData | null> {
  * Gets the current session ID (UUID) from the session cookie.
  * Returns null if no valid session exists.
  *
- * Use this when you need the session_id for composite keys (e.g., wishlists table).
+ * Use this as a lightweight authentication guard (e.g., wishlist reads/writes).
  * For general session data access, use getSession() instead.
  */
 export async function getCurrentSessionId(): Promise<string | null> {
