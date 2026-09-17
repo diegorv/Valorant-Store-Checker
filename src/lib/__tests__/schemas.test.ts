@@ -150,6 +150,20 @@ describe("AuthResponseSchema", () => {
     }
   });
 
+  it("type=multifactor with a masked email: parses successfully", () => {
+    // Riot masks the address it sends the code to. Validating this as an email
+    // rejects the whole payload, which turns the MFA challenge into a generic
+    // "Invalid auth response from Riot" and makes MFA login impossible.
+    const result = AuthResponseSchema.safeParse({
+      type: "multifactor",
+      multifactor: { email: "u***@example.com", method: "email" },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.multifactor?.email).toBe("u***@example.com");
+    }
+  });
+
   it("missing type field: fails validation", () => {
     const result = AuthResponseSchema.safeParse({});
     expect(result.success).toBe(false);
