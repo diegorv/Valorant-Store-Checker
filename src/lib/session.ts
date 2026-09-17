@@ -121,6 +121,17 @@ export async function createSession(tokens: {
   country?: string;
   riotCookies?: string;
 }): Promise<void> {
+  // 0. Revoke the session this one replaces.
+  //
+  // Overwriting the cookie below makes the previous row unreachable through
+  // the app, but it stayed valid in the store for the full 30-day TTL — a JWT
+  // captured before a login, an addAccount or a switchAccount kept working
+  // against it. Doing this here covers every caller that replaces a session.
+  //
+  // Per-account copies (valorant_session_<short>) live under their own ids and
+  // are not touched, so switching back to an account still works.
+  await revokeCurrentSession();
+
   // 1. Filter cookies (legacy logic, still good to keep data small)
   const filteredCookies = tokens.riotCookies
     ? tokens.riotCookies
@@ -256,27 +267,42 @@ export async function getCurrentSessionId(): Promise<string | null> {
 }
 
 /**
+ * Internal: revokes the session the cookie currently points at, without
+ * touching the cookie itself.
+ *
+ * Drops the row from the store AND evicts the token from the LRU — skipping
+ * the eviction would let a replayed JWT be served from cache for up to the
+ * cache TTL after its row is gone.
+ *
+ * A deleted cookie reads back as an empty string rather than undefined, so an
+ * already-cleared cookie falls out on the `!token` guard.
+ */
+async function revokeCurrentSession(): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+
+  if (!token) return;
+
+  _sessionCache.invalidate(token);
+  try {
+    const { payload } = await jwtVerify(token, getSecretKey());
+    const sessionId = (payload as SessionTokenPayload).sessionId;
+    if (sessionId) {
+      log.debug("Revoking session %s", sessionId);
+      await deleteSessionFromStore(sessionId);
+    }
+  } catch {
+    log.warn("Failed to revoke session from store: invalid token");
+  }
+}
+
+/**
  * Deletes session from store AND cookie.
  * ONLY safe to call from Route Handlers or Server Actions.
  */
 export async function deleteSession(): Promise<void> {
+  await revokeCurrentSession();
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-
-  if (token) {
-    _sessionCache.invalidate(token);
-    try {
-      const { payload } = await jwtVerify(token, getSecretKey());
-      const sessionId = (payload as SessionTokenPayload).sessionId;
-      if (sessionId) {
-        log.debug("Deleting session %s", sessionId);
-        await deleteSessionFromStore(sessionId);
-      }
-    } catch {
-      log.warn("Failed to delete session from store: invalid token");
-    }
-  }
-
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
 

@@ -99,6 +99,12 @@ async function saveAccountSession(
   puuid: string,
   sessionData: SessionData
 ): Promise<void> {
+  // 0. Revoke the copy this one replaces. Each call mints a fresh id and
+  // overwrites the per-account cookie, so without this every account switch
+  // stranded a row that stayed valid for the full 30 days. The cookie this
+  // clears is re-set below.
+  await deleteAccountSession(puuid);
+
   // 1. Generate Session ID
   const sessionId = randomUUID();
 
