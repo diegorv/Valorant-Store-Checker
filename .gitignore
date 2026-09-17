@@ -48,6 +48,7 @@ next-env.d.ts
 .gemini/
 .planning/
 .playwright-mcp/
+.scratch/
 .session-data/
 ROADMAP_ENCYCLOPEDIA.md
 Improvements.md
