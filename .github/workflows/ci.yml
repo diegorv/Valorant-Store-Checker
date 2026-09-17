@@ -70,7 +70,7 @@ jobs:
   mutation:
     name: Mutation testing
     runs-on: ubuntu-latest
-    # Não bloqueia o merge: stryker.config.json usa thresholds.break = null.
+    # Does not block a merge: stryker.config.json sets thresholds.break to null.
     timeout-minutes: 20
 
     steps:

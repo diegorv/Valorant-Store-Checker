@@ -8,13 +8,28 @@
     "configFile": "vitest.stryker.config.ts"
   },
 
-  "_comment_coverageAnalysis": "perTest faz o Stryker rodar, para cada mutante, só os testes que passam por aquela linha. É o que torna a rodada viável.",
+  "_comment_coverageAnalysis": "perTest runs only the tests that cover each mutant. It is what makes a full run take minutes instead of hours. Requires the vitest runner, which in turn requires Vitest 4 — see the README.",
   "coverageAnalysis": "perTest",
 
-  "_comment_concurrency": "O default é (núcleos - 1), o que numa máquina de 10 núcleos derruba o desktop. 4 é o que o runner do GitHub tem e é suficiente.",
+  "_comment_concurrency": "The default is (cores - 1), which on a 10-core laptop means 9 workers and an unusable desktop. 4 matches the GitHub runner and is enough.",
   "concurrency": 4,
 
-  "_comment_mutate": "Mesmo recorte do coverage em vitest.config.ts: só o que o projeto considera unit-testável.",
+  "_comment_ignorePatterns": "Stryker copies the whole project into its sandbox. None of these are needed to run the tests, and .claude/skills holds symlinks that make the copy fail with ENOTSUP.",
+  "ignorePatterns": [
+    ".claude",
+    ".agents",
+    ".agent",
+    ".scratch",
+    ".session-data",
+    ".vercel",
+    ".next",
+    "coverage",
+    "playwright-report",
+    "test-results",
+    "public"
+  ],
+
+  "_comment_mutate": "Same scope as the coverage config in vitest.config.ts: only what this project treats as unit-testable.",
   "mutate": [
     "src/lib/**/*.ts",
     "src/app/api/**/*.ts",
@@ -48,7 +63,7 @@
     "fileName": "reports/mutation/index.html"
   },
 
-  "_comment_thresholds": "break: null — por enquanto só medimos. Definir um break depois de algumas rodadas estáveis.",
+  "_comment_thresholds": "break is null on purpose — we are still measuring. Set one once the score has been stable across a few runs.",
   "thresholds": {
     "high": 80,
     "low": 60,

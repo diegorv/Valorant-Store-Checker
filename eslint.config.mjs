@@ -50,6 +50,12 @@ const eslintConfig = defineConfig([
 
     // Auto-generated coverage instrumentation:
     "coverage/**",
+
+    // Stryker's sandbox is a full copy of the project, and it survives a
+    // crashed run. Without this, a failed `pnpm mutation` makes `pnpm lint`
+    // fail on duplicates of files that already passed.
+    ".stryker-tmp/**",
+    "reports/**",
   ]),
 ]);
 
