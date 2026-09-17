@@ -58,9 +58,11 @@ export default async function StorePage() {
             </div>
 
             <div className="flex items-center gap-4 flex-wrap">
-              <Suspense fallback={<div className="h-10 w-32 bg-white/5 rounded animate-pulse" />}>
-                 <WalletSection session={session} />
-              </Suspense>
+              <SectionErrorBoundary sectionName="Wallet" compact>
+                <Suspense fallback={<div className="h-10 w-32 bg-white/5 rounded animate-pulse" />}>
+                  <WalletSection session={session} />
+                </Suspense>
+              </SectionErrorBoundary>
               
               <LogoutButtonClient />
             </div>

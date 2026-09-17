@@ -38,6 +38,9 @@ const MOCK_VERSION_RESPONSE = {
 
 const MOCK_WALLET = { Balances: { VP: 1000, RP: 500 } };
 
+/** Hardcoded last-resort version in riot-store.ts, used when every source fails */
+const HARDCODED_FALLBACK_VERSION = "release-12.05-shipping-22-4360629";
+
 function makeOkResponse(data: unknown) {
   return {
     ok: true,
@@ -93,33 +96,39 @@ describe("getStorefront — client version fetching", () => {
     expect(urls.some((url: string) => url.includes("riotclient.riotgames.com"))).toBe(false);
   });
 
-  it("throws error when the version fetch fails (network error)", async () => {
-    fetchSpy.mockRejectedValue(new Error("Network failure"));
+  /** Captures the X-Riot-ClientVersion sent to the storefront endpoint. */
+  function mockVersionFailure(versionResponse: () => Promise<unknown>) {
+    const captured: { headers: Record<string, string> } = { headers: {} };
 
-    const result = getStorefront(MOCK_TOKENS).catch((e) => e);
-
-    await vi.runAllTimersAsync();
-    const error = await result;
-
-    expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/Failed to fetch client version/);
-  });
-
-  it("throws error on HTTP error responses", async () => {
-    fetchSpy.mockImplementation((url: string) => {
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("valorant-api.com")) {
-        return Promise.resolve(makeFailResponse(503));
+        return versionResponse();
       }
+      captured.headers = (init?.headers as Record<string, string>) || {};
       return Promise.resolve(makeOkResponse({}));
     });
 
-    const result = getStorefront(MOCK_TOKENS).catch((e) => e);
+    return captured;
+  }
 
+  it("falls back to the hardcoded version when the version fetch fails (network error)", async () => {
+    const captured = mockVersionFailure(() => Promise.reject(new Error("Network failure")));
+
+    const result = getStorefront(MOCK_TOKENS);
     await vi.runAllTimersAsync();
-    const error = await result;
+    await result;
 
-    expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/Failed to fetch client version/);
+    expect(captured.headers["X-Riot-ClientVersion"]).toBe(HARDCODED_FALLBACK_VERSION);
+  });
+
+  it("falls back to the hardcoded version on HTTP error responses", async () => {
+    const captured = mockVersionFailure(() => Promise.resolve(makeFailResponse(503)));
+
+    const result = getStorefront(MOCK_TOKENS);
+    await vi.runAllTimersAsync();
+    await result;
+
+    expect(captured.headers["X-Riot-ClientVersion"]).toBe(HARDCODED_FALLBACK_VERSION);
   });
 
   it("uses cached version on subsequent calls within TTL", async () => {

@@ -80,10 +80,18 @@ async function setCache<T>(key: string, data: T): Promise<void> {
 /**
  * Get data from Redis and check if still valid
  * Returns null if not found or expired
+ * Never throws — a Redis failure (e.g. quota 429) is treated as a cache miss.
  */
 async function getCache<T>(key: string): Promise<{ data: T; timestamp: number } | null> {
   if (!redis) return null;
-  const raw = await redis.get<string>(key);
+
+  let raw: string | null;
+  try {
+    raw = await redis.get<string>(key);
+  } catch (err) {
+    log.warn("Failed to read Redis cache, treating as cache miss:", err);
+    return null;
+  }
   if (!raw) return null;
 
   try {
@@ -489,10 +497,18 @@ export async function getWeaponSkinsByLevelUuids(
 
 /**
  * Get stale cache data without TTL check (used for stale-while-revalidate)
+ * Never throws — a Redis failure (e.g. quota 429) is treated as a cache miss.
  */
 async function getStaleCache<T>(key: string): Promise<T | null> {
   if (!redis) return null;
-  const raw = await redis.get<string>(key);
+
+  let raw: string | null;
+  try {
+    raw = await redis.get<string>(key);
+  } catch (err) {
+    log.warn("Failed to read stale Redis cache, treating as cache miss:", err);
+    return null;
+  }
   if (!raw) return null;
 
   try {

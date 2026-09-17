@@ -5,6 +5,11 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 interface SectionErrorBoundaryProps {
   /** Name of the section, displayed in the fallback UI (e.g. "Featured Bundle") */
   sectionName: string;
+  /**
+   * Renders a single-line fallback sized for a narrow inline slot
+   * (e.g. the wallet in the page header) instead of the full-width card.
+   */
+  compact?: boolean;
   children: ReactNode;
 }
 
@@ -51,6 +56,25 @@ export class SectionErrorBoundary extends Component<
 
   render(): ReactNode {
     if (this.state.hasError) {
+      if (this.props.compact) {
+        return (
+          <div className="angular-card-sm bg-void-surface/50 flex items-center gap-2 h-10 px-3">
+            <span className="text-red-500 font-bold leading-none">!</span>
+
+            <span className="text-zinc-400 text-xs font-display uppercase tracking-wider">
+              {this.props.sectionName} Unavailable
+            </span>
+
+            <button
+              onClick={this.handleRetry}
+              className="text-zinc-300 hover:text-white text-xs font-display uppercase tracking-wider underline underline-offset-2 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-12 px-6 space-y-4">
           {/* Error icon */}

@@ -220,6 +220,29 @@ describe("getWeaponSkins", () => {
 
     await expect(getWeaponSkins()).rejects.toThrow("Network failure");
   });
+
+  it("getCache throws (Redis quota 429): treated as cache miss, fetches fresh data", async () => {
+    // The Upstash SDK throws on the first 429 without retrying
+    mockRedisGet.mockRejectedValue(new Error("ERR max requests limit exceeded"));
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => makeValidApiResponse(MOCK_SKINS_DATA),
+    } as Response);
+
+    const result = await getWeaponSkins();
+
+    expect(result).toEqual(MOCK_SKINS_DATA);
+  });
+
+  it("getStaleCache throws (Redis quota 429): rethrows the original fetch error", async () => {
+    mockRedisGet
+      .mockResolvedValueOnce(null) // getCache fresh check
+      .mockRejectedValueOnce(new Error("ERR max requests limit exceeded")); // getStaleCache
+    vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network failure"));
+
+    await expect(getWeaponSkins()).rejects.toThrow("Network failure");
+  });
 });
 
 describe("getContentTiers", () => {
