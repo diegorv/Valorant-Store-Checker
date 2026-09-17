@@ -102,7 +102,9 @@ export function AccountSwitcher() {
         method: "DELETE",
       });
 
-      if (!response.ok) {
+      // 404 means the account is already gone from the registry — the local
+      // list is stale, so fall through and reconcile instead of erroring out
+      if (!response.ok && response.status !== 404) {
         throw new Error(`Failed to remove account: ${response.statusText}`);
       }
 

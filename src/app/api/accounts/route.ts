@@ -6,51 +6,49 @@
  * - DELETE /api/accounts?puuid=xxx - Remove a specific account
  *
  * Security:
+ * - Requires a valid session (withSession)
  * - Uses account registry from cookies
  * - Automatically handles account switching when removing active account
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withSession } from "@/lib/api-validate";
 import { getAccounts, addAccount, removeAccount } from "@/lib/accounts";
-import { getSession } from "@/lib/session";
 import { createLogger } from "@/lib/logger";
 
 /**
  * GET /api/accounts
  * Returns list of stored accounts and which one is active
  */
-export async function GET(_request: NextRequest, _session: unknown, reqId?: string) {
+export const GET = withSession(async (_request, session, reqId?: string) => {
   const log = createLogger("Accounts API", reqId);
   try {
     let registry = await getAccounts();
 
-    // Migration: if no registry exists but an active session does,
-    // auto-populate the registry from the current session
+    // Migration: if no registry exists yet, auto-populate it
+    // from the current session
     if (!registry) {
-      const session = await getSession();
-      if (session) {
-        log.info("Migrating existing session to multi-account registry");
-        await addAccount(
-          {
-            puuid: session.puuid,
-            region: session.region,
-            gameName: session.gameName,
-            tagLine: session.tagLine,
-            addedAt: session.createdAt || Date.now(),
-          },
-          {
-            accessToken: session.accessToken,
-            entitlementsToken: session.entitlementsToken,
-            puuid: session.puuid,
-            region: session.region,
-            gameName: session.gameName,
-            tagLine: session.tagLine,
-            country: session.country,
-            riotCookies: session.riotCookies,
-          }
-        );
-        registry = await getAccounts();
-      }
+      log.info("Migrating existing session to multi-account registry");
+      await addAccount(
+        {
+          puuid: session.puuid,
+          region: session.region,
+          gameName: session.gameName,
+          tagLine: session.tagLine,
+          addedAt: session.createdAt || Date.now(),
+        },
+        {
+          accessToken: session.accessToken,
+          entitlementsToken: session.entitlementsToken,
+          puuid: session.puuid,
+          region: session.region,
+          gameName: session.gameName,
+          tagLine: session.tagLine,
+          country: session.country,
+          riotCookies: session.riotCookies,
+        }
+      );
+      registry = await getAccounts();
     }
 
     if (!registry) {
@@ -79,13 +77,13 @@ export async function GET(_request: NextRequest, _session: unknown, reqId?: stri
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * DELETE /api/accounts?puuid=xxx
  * Removes a specific account by PUUID
  */
-export async function DELETE(request: NextRequest, _session: unknown, reqId?: string) {
+export const DELETE = withSession(async (request, _session, reqId?: string) => {
   const log = createLogger("Accounts API", reqId);
   try {
     const { searchParams } = new URL(request.url);
@@ -99,7 +97,14 @@ export async function DELETE(request: NextRequest, _session: unknown, reqId?: st
     }
 
     // Remove account (handles active account switching automatically)
-    await removeAccount(puuid);
+    const removed = await removeAccount(puuid);
+
+    if (!removed) {
+      return NextResponse.json(
+        { error: "Account not found" },
+        { status: 404 }
+      );
+    }
 
     log.info(`Removed account ${puuid.substring(0, 8)}`);
 
@@ -114,4 +119,4 @@ export async function DELETE(request: NextRequest, _session: unknown, reqId?: st
       { status: 500 }
     );
   }
-}
+});

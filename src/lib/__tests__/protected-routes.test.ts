@@ -12,10 +12,13 @@ vi.mock("@/lib/session", () => ({
   getSessionWithRefresh: vi.fn(async () => null),
 }));
 
-// Mock accounts module — used by accounts/switch route internally
+// Mock accounts module — used by accounts and accounts/switch routes internally
 vi.mock("@/lib/accounts", () => ({
   switchAccount: vi.fn(),
   getActiveAccount: vi.fn(),
+  getAccounts: vi.fn(),
+  addAccount: vi.fn(),
+  removeAccount: vi.fn(),
 }));
 
 // Mock wishlist module — used by wishlist route
@@ -44,6 +47,7 @@ vi.mock("@/lib/riot-store", () => ({
 const wishlistRoute = await import("@/app/api/wishlist/route");
 const profileRoute = await import("@/app/api/profile/route");
 const switchRoute = await import("@/app/api/accounts/switch/route");
+const accountsRoute = await import("@/app/api/accounts/route");
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -114,5 +118,33 @@ describe("Protected routes — 401 when no session", () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error).toBe("Unauthorized");
+  });
+
+  // -- Accounts ---------------------------------------------------------------
+
+  it("GET /api/accounts returns 401 (no session)", async () => {
+    const res = await accountsRoute.GET(makeRequest("/api/accounts"));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("Unauthorized");
+  });
+
+  it("DELETE /api/accounts returns 401 (no session)", async () => {
+    const res = await accountsRoute.DELETE(
+      makeRequest("/api/accounts?puuid=test-puuid-1234", "DELETE")
+    );
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("Unauthorized");
+  });
+
+  it("DELETE /api/accounts does not touch the registry without a session", async () => {
+    const { removeAccount } = await import("@/lib/accounts");
+
+    await accountsRoute.DELETE(
+      makeRequest("/api/accounts?puuid=test-puuid-1234", "DELETE")
+    );
+
+    expect(removeAccount).not.toHaveBeenCalled();
   });
 });
