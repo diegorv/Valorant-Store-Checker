@@ -238,6 +238,17 @@ What the Docker setup does:
 
 - Refuses to start if `SESSION_SECRET`, `ENCRYPTION_KEY` or `SRH_TOKEN` is missing, so cookies are never written to disk unencrypted.
 
+**Prebuilt image:** every push to `main` publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to GitHub Container Registry, and version tags (`v1.2.3`) publish `:1.2.3` / `:1.2`. To use it instead of building locally, create a `docker-compose.override.yml` next to `docker-compose.yml`:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/yugam23/valorant-store-checker:latest
+    pull_policy: always
+```
+
+Then start with `docker compose up -d` (without `--build`).
+
 > **Tip:** the same setup works as a production-like local environment on your own machine — `docker compose up -d --build` gives you the app plus Redis, so caching and rate limiting behave the same as on a hosted deployment. Use `docker compose logs -f app` to follow the server logs (set `LOG_LEVEL=info` or `debug` in `.env` for more detail) and `docker compose down` to stop it.
 
 > **Note:** the "Launch Riot Login" button opens a browser _on the machine running the server_ (via `xdg-open` / `open`), so it does nothing useful inside a container. Use the credentials + MFA login, or log in on any browser and paste the redirect URL / cookies.
