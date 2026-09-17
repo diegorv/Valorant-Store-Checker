@@ -5,7 +5,7 @@
  * to the appropriate handler module in src/lib/auth-handlers/.
  *
  * Endpoints:
- * - POST /api/auth — Login with credentials, MFA, URL, cookie, or browser
+ * - POST /api/auth — Login with credentials, MFA, URL, or cookie
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,7 +17,6 @@ import {
   handleMfaAuth,
   handleUrlAuth,
   handleCookieAuth,
-  handleBrowserAuth,
 } from "@/lib/auth-handlers";
 import { rateLimit } from "@/lib/rate-limiter";
 import { getClientIP, addRateLimitHeaders, createRateLimitedResponse } from "@/lib/rate-limit-utils";
@@ -52,10 +51,6 @@ export async function POST(request: NextRequest) {
       }
       case "multifactor": {
         const response = await handleMfaAuth(body);
-        return addRateLimitHeaders(response, { limit, remaining, reset });
-      }
-      case "launch_browser": {
-        const response = await handleBrowserAuth(body);
         return addRateLimitHeaders(response, { limit, remaining, reset });
       }
       case "auth": {
