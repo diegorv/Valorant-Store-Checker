@@ -58,3 +58,8 @@ Refactoring Plan.md
 playwright-report/
 test-results/
 .mcp.json
+
+# stryker
+/reports/
+.stryker-tmp/
+.stryker-incremental.json

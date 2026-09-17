@@ -1,0 +1,66 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+
+  "_comment_testRunner": "@stryker-mutator/vitest-runner@10 não suporta Vitest 5: todo mutante sobrevive ('Ran 0.00 tests per mutant'). Ver 'Mutation testing' no README. Enquanto isso, o command runner roda a suíte inteira por mutante — correto, porém lento.",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "node node_modules/vitest/vitest.mjs run --config vitest.stryker.config.ts"
+  },
+  "coverageAnalysis": "off",
+
+  "_comment_timeout": "Cada mutante paga o custo de subir um processo Vitest do zero. Com concorrência alta esse spawn passa fácil dos 5s padrão e viraria timeout falso (que o Stryker contaria como mutante morto).",
+  "timeoutMS": 60000,
+  "timeoutFactor": 4,
+
+  "_comment_concurrency": "O default é (núcleos - 1), o que aqui significa 9 processos Vitest simultâneos e a máquina de joelhos. 4 é o suficiente e é o que o runner do GitHub tem.",
+  "concurrency": 4,
+
+  "_comment_mutate": "Mesmo recorte do coverage em vitest.config.ts: só o que o projeto considera unit-testável.",
+  "mutate": [
+    "src/lib/**/*.ts",
+    "src/app/api/**/*.ts",
+    "src/middleware.ts",
+    "!src/**/__tests__/**",
+    "!src/lib/msw/**",
+    "!src/lib/db.ts",
+    "!src/lib/env.ts",
+    "!src/lib/nav.ts",
+    "!src/lib/redis-client.ts",
+    "!src/lib/rate-limiter.ts",
+    "!src/lib/session-db.ts",
+    "!src/lib/session-crypto.ts",
+    "!src/lib/inventory-cache.ts",
+    "!src/lib/store-history.ts",
+    "!src/lib/store-service.ts",
+    "!src/lib/riot-reauth.ts",
+    "!src/lib/riot-inventory.ts",
+    "!src/lib/riot-loadout.ts",
+    "!src/lib/henrik-api.ts",
+    "!src/lib/edition-icons.ts",
+    "!src/lib/auth-handlers/index.ts",
+    "!src/app/api/accounts/**",
+    "!src/app/api/inventory/**",
+    "!src/app/api/profile/**",
+    "!src/app/api/wishlist/**"
+  ],
+
+  "_comment_incremental": "Sem o vitest-runner cada mutante custa um processo Vitest inteiro, então a rodada cheia é cara. O modo incremental reaproveita o resultado dos mutantes cujo código e testes não mudaram. O arquivo é cacheado no CI, não versionado.",
+  "incremental": true,
+  "incrementalFile": ".stryker-incremental.json",
+
+  "reporters": ["html", "clear-text", "progress"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+
+  "_comment_thresholds": "break: null — por enquanto só medimos. Definir um break depois de algumas rodadas estáveis.",
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  },
+
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true
+}
