@@ -9,6 +9,7 @@
     "start": "next start",
     "start:e2e": "node --import ./src/lib/msw/start.ts next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
