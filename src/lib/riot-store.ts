@@ -57,8 +57,6 @@ async function getClientVersion(): Promise<string> {
     }
   } catch (error) {
     log.warn("Valorant-API version fetch failed:", error);
-    const lastError = error instanceof Error ? error : new Error(String(error));
-    throw new Error(`Failed to fetch client version: ${lastError.message}`);
   }
 
   // Last resort: use hardcoded fallback version

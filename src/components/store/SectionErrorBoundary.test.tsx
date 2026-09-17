@@ -60,4 +60,39 @@ describe("SectionErrorBoundary", () => {
       });
     });
   });
+
+  describe("Compact fallback (narrow header slot)", () => {
+    it("isolates a wallet failure — sibling header content keeps rendering", async () => {
+      const { container } = render(
+        <div>
+          <SectionErrorBoundary sectionName="Wallet" compact>
+            <ThrowError message="401 from Riot" />
+          </SectionErrorBoundary>
+          <button>Logout</button>
+        </div>
+      );
+
+      await waitFor(() => {
+        expect(container.textContent).toContain("Wallet Unavailable");
+      });
+      expect(container.textContent).toContain("Logout");
+    });
+
+    it("fits the narrow slot — no full-width section card padding", async () => {
+      const { container } = render(
+        <SectionErrorBoundary sectionName="Wallet" compact>
+          <ThrowError />
+        </SectionErrorBoundary>
+      );
+
+      await waitFor(() => {
+        expect(container.textContent).toContain("Wallet Unavailable");
+      });
+
+      const fallback = container.firstElementChild as HTMLElement;
+      expect(fallback.className).not.toMatch(/py-12/);
+      expect(fallback.className).not.toMatch(/px-6/);
+      expect(fallback.className).toMatch(/h-10/);
+    });
+  });
 });
