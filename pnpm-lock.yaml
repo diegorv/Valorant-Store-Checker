@@ -181,9 +181,6 @@ importers:
       '@upstash/redis':
         specifier: ^1.38.4
         version: 1.38.4
-      ccusage:
-        specifier: ^20.0.20
-        version: 20.0.20
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -196,9 +193,6 @@ importers:
       dexie-react-hooks:
         specifier: ^4.4.0
         version: 4.4.0(dexie@4.4.6)(react@19.3.0)
-      gsd-antigravity-kit:
-        specifier: ^2.1.0
-        version: 2.1.0
       html2canvas-pro:
         specifier: ^2.4.3
         version: 2.4.3
@@ -380,36 +374,6 @@ packages:
 
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
-
-  '@ccusage/ccusage-darwin-arm64@20.0.20':
-    resolution: {integrity: sha512-TgvU1u9bjgBD+CuQqj55PNAl3LnrW9awCeXDkPS0acntTP72A4gdGjCBZ+LAmR8HECBlvD9lSDqWHhpCX9kZQw==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@ccusage/ccusage-darwin-x64@20.0.20':
-    resolution: {integrity: sha512-UkanWl+XRiC7rgTG7eZDy4xqleQOZ3xd8i6RBW77p2OhHheBpGznMkqS7/5rPT2JQ10cnkOKqjxFE09CLAmIrQ==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@ccusage/ccusage-linux-arm64@20.0.20':
-    resolution: {integrity: sha512-iiURX4sqr3S7jrDJW6P6F0QtP6lx7lkhqqxBQXzaL/66xjhUkCDHKzRglixPuSBxkNaKGL6RAtKGk/ubFGvdBg==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@ccusage/ccusage-linux-x64@20.0.20':
-    resolution: {integrity: sha512-qG5LcyerzKJVPu3hTRHYaWo6VtKB9uyGbRdviw4imInIWRQdPcrEAIb22oCO7iWEfAEv5ZYmTjYWJLX+dR5HXg==}
-    cpu: [x64]
-    os: [linux]
-
-  '@ccusage/ccusage-win32-arm64@20.0.20':
-    resolution: {integrity: sha512-BUXxVGbZ6WtA8RGqjukzkKFmS2x2cjMTV1kU5weZ4+K/uPHIHJjDIDnSKJtNAllwpwlPKpC+k3UdhkapeVM10w==}
-    cpu: [arm64]
-    os: [win32]
-
-  '@ccusage/ccusage-win32-x64@20.0.20':
-    resolution: {integrity: sha512-6R9cdLuRy529ewdkKbwtjx7boCQNFK8KG1F6d5G/pw2ApKRmucWcwjFo/7sNULQtZMyUxhYa40tUnWy9L/yTMA==}
-    cpu: [x64]
-    os: [win32]
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -1565,10 +1529,6 @@ packages:
     resolution: {integrity: sha512-5ON+q7jCTgMp9cjpu4Jo6XbvfYwSB2Ow3kzHKfIyJfaCAOHLbdKPQqGKgfED/R5B+3TFFfe8pegYA+b423SRyA==}
     engines: {node: '>=10.0.0'}
 
-  ccusage@20.0.20:
-    resolution: {integrity: sha512-xctCxhwK4Nqo1i3zSa1+JM3wN/oSdPSglzgxIWZyk9KLsLyQQMfntG3NJHoRH3DJHzkvG1EzVwH/xSI2z6VH3Q==}
-    hasBin: true
-
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
@@ -2057,10 +2017,6 @@ packages:
   graphql@16.14.2:
     resolution: {integrity: sha512-Chq1s4CY7jmh8gO2qvLIJyfCDIN+EHLFW/9iShnp1z8FjBQMoodWP1kDC36VAMXXIvAjj4ARa7ntfAV2BrjsbA==}
     engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
-
-  gsd-antigravity-kit@2.1.0:
-    resolution: {integrity: sha512-r9ScuIjrHsrpHISDUq4UeN4f3/iAF9NBwXcqvSCR2KqSZIR7iEfU/laTULMDzqMysq8ZmS2ej4crVrHNqatgBA==}
-    hasBin: true
 
   happy-dom@20.14.5:
     resolution: {integrity: sha512-x/RzkpWO40bTjIoT30iQtt64FLLmH/iRcUCN2X//bLx7H3ifkdfPXyqsro/OYtqzIAhiLMMA7mmiOR9C3NOKjQ==}
@@ -3443,24 +3399,6 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@ccusage/ccusage-darwin-arm64@20.0.20':
-    optional: true
-
-  '@ccusage/ccusage-darwin-x64@20.0.20':
-    optional: true
-
-  '@ccusage/ccusage-linux-arm64@20.0.20':
-    optional: true
-
-  '@ccusage/ccusage-linux-x64@20.0.20':
-    optional: true
-
-  '@ccusage/ccusage-win32-arm64@20.0.20':
-    optional: true
-
-  '@ccusage/ccusage-win32-x64@20.0.20':
-    optional: true
-
   '@emnapi/core@1.10.0':
     dependencies:
       '@emnapi/wasi-threads': 1.2.1
@@ -4461,15 +4399,6 @@ snapshots:
       svg-pathdata: 6.0.3
     optional: true
 
-  ccusage@20.0.20:
-    optionalDependencies:
-      '@ccusage/ccusage-darwin-arm64': 20.0.20
-      '@ccusage/ccusage-darwin-x64': 20.0.20
-      '@ccusage/ccusage-linux-arm64': 20.0.20
-      '@ccusage/ccusage-linux-x64': 20.0.20
-      '@ccusage/ccusage-win32-arm64': 20.0.20
-      '@ccusage/ccusage-win32-x64': 20.0.20
-
   chai@6.2.2: {}
 
   chalk@4.1.2:
@@ -5119,8 +5048,6 @@ snapshots:
   graceful-fs@4.2.11: {}
 
   graphql@16.14.2: {}
-
-  gsd-antigravity-kit@2.1.0: {}
 
   happy-dom@20.14.5:
     dependencies:
