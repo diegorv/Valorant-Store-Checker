@@ -17,12 +17,6 @@
   </a>
 </p>
 
-<p align="center">
-  <a href="https://diploi.com/launch/yugam23/Valorant-Store-Checker">
-    <img src="https://diploi.com/launch.svg" alt="Launch with Diploi badge">
-  </a>
-</p>
-
 ---
 
 ## Overview
@@ -157,25 +151,7 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 
 ## Deployment
 
-### Option 1: Deploy with Diploi
-
-[![Launch with Diploi button](https://diploi.com/launch-big.svg)](https://diploi.com/launch/yugam23/Valorant-Store-Checker)
-
-1. Launch the project
-
-  Click the launch button above to create a new Diploi deployment for the app.
-
-2. Add environment variables
-
-  Open the **Environment** tab in the sidebar and add the required variables from this README.
-
-3. View the deployment
-
-  Open the preview URL from your Diploi deployment page.
-
-For more information, visit [diploi.com](https://diploi.com/).
-
-### Option 2: Deploy with Vercel (Recommended)
+### Option 1: Deploy with Vercel (Recommended)
 
 1. Click **Deploy with Vercel** above, or import the repo at [vercel.com/new](https://vercel.com/new).
 2. Add the following environment variables in the Vercel project settings:
@@ -193,7 +169,7 @@ For more information, visit [diploi.com](https://diploi.com/).
 
 > Every push to `main` triggers an automatic redeployment.
 
-### Option 3: Self-host with Docker
+### Option 2: Self-host with Docker
 
 Run the app on your own server (VPS, home lab, NAS) so that Riot session
 cookies never leave infrastructure you control.
@@ -304,7 +280,7 @@ Without a persistent Turso database, sessions are stored in a local SQLite file 
 
 5. Open [http://localhost:3000](http://localhost:3000).
 
-`npm run dev` runs without Redis unless you set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, so every page load goes straight to Riot and HenrikDev. To test with caching and rate limiting, use the [Docker setup](#option-3-self-host-with-docker) instead.
+`npm run dev` runs without Redis unless you set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, so every page load goes straight to Riot and HenrikDev. To test with caching and rate limiting, use the [Docker setup](#option-2-self-host-with-docker) instead.
 
 ### Running Tests
 
