@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { StoreItem } from "../../types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -28,6 +28,12 @@ export const StoreCard = memo(({
 
   // Derived display state: optimistic override takes precedence, otherwise use prop
   const displayIsWishlisted = optimisticOverride ?? isWishlisted;
+
+  // Drop the override once the prop reports a new authoritative value, so a
+  // toggle the server rejected (and the parent rolled back) is reflected here
+  useEffect(() => {
+    setOptimisticOverride(null);
+  }, [isWishlisted]);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
