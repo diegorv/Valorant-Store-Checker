@@ -263,10 +263,11 @@ async function fetchWithRetry(
   timeoutMs: number,
   isProbe: boolean
 ): Promise<Response> {
-  const isV3 = url.includes("/v3/");
-  const method = isV3 ? "POST" : "GET";
-  const body = isV3 ? "{}" : undefined;
-  const headers = isV3
+  // Only the v3 storefront is POST; other v3 endpoints (e.g. playerloadout) are GET
+  const isPost = url.includes("/store/v3/storefront/");
+  const method = isPost ? "POST" : "GET";
+  const body = isPost ? "{}" : undefined;
+  const headers = isPost
     ? { ...baseHeaders, "Content-Type": "application/json" }
     : baseHeaders;
 

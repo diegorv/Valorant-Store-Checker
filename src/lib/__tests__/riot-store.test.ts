@@ -236,3 +236,39 @@ describe("getWallet — client version header inclusion", () => {
     expect(capturedHeaders["X-Riot-ClientVersion"]).toBe(MOCK_VERSION);
   });
 });
+
+describe("fetchWithShardFallback — HTTP method selection", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchWithShardFallback: typeof import("@/lib/riot-store").fetchWithShardFallback;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValue(makeOkResponse(MOCK_VERSION_RESPONSE));
+
+    const mod = await import("@/lib/riot-store");
+    fetchWithShardFallback = mod.fetchWithShardFallback;
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  function methodFor(fragment: string): string | undefined {
+    const call = fetchSpy.mock.calls.find((c: unknown[]) => (c[0] as string).includes(fragment));
+    return (call?.[1] as RequestInit | undefined)?.method;
+  }
+
+  it("uses POST for the v3 storefront", async () => {
+    await fetchWithShardFallback(MOCK_TOKENS, (pdUrl) => `${pdUrl}/store/v3/storefront/${MOCK_TOKENS.puuid}`);
+    expect(methodFor("/store/v3/storefront/")).toBe("POST");
+  });
+
+  it("uses GET for other v3 endpoints like the player loadout", async () => {
+    await fetchWithShardFallback(
+      MOCK_TOKENS,
+      (pdUrl) => `${pdUrl}/personalization/v3/players/${MOCK_TOKENS.puuid}/playerloadout`,
+    );
+    expect(methodFor("/personalization/v3/")).toBe("GET");
+  });
+});
