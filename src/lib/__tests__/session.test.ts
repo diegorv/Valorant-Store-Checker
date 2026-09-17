@@ -37,7 +37,7 @@ vi.mock("jose", () => ({
 }));
 
 // Mock next/headers cookies to return our test JWT
-// This overrides the global mock in vitest.setup.ts for this test file
+// This overrides the global mock in test/setup.node.ts for this test file
 vi.mock("next/headers", () => ({
   cookies: vi.fn(() => ({
     get: vi.fn((name: string) => {

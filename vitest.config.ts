@@ -2,6 +2,12 @@ import { defineConfig } from "vitest/config";
 import path from "path";
 import react from "@vitejs/plugin-react";
 
+const resolve = {
+  alias: {
+    "@": path.resolve(__dirname, "src"),
+  },
+};
+
 export default defineConfig({
   test: {
     coverage: {
@@ -129,27 +135,19 @@ export default defineConfig({
         test: {
           environment: "node",
           include: ["src/**/__tests__/**/*.test.ts"],
-          setupFiles: ["./vitest.setup.ts"],
+          setupFiles: ["./test/setup.node.ts"],
         },
-        resolve: {
-          alias: {
-            "@": path.resolve(__dirname, "src"),
-          },
-        },
+        resolve,
       },
       {
         name: "happy-dom",
         test: {
           environment: "happy-dom",
           include: ["src/**/*.test.tsx"],
-          setupFiles: ["./vitest.component.setup.tsx"],
+          setupFiles: ["./test/setup.component.tsx"],
         },
         plugins: [react()],
-        resolve: {
-          alias: {
-            "@": path.resolve(__dirname, "src"),
-          },
-        },
+        resolve,
       },
     ],
   },
