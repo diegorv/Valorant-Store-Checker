@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    image: valorant-store-checker:local
+    container_name: valorant-store-checker
+    restart: unless-stopped
+    ports:
+      # Bind to loopback by default. Put a TLS reverse proxy (Caddy, nginx,
+      # Traefik) in front of it — session cookies are `Secure` in production
+      # and browsers only send them over HTTPS (or plain http://localhost).
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env (openssl rand -base64 32)}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env (openssl rand -hex 32)}
+      HENRIK_API_KEY: ${HENRIK_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:-}
+      TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
+      RATE_LIMIT_REQS_PER_MIN: ${RATE_LIMIT_REQS_PER_MIN:-10}
+    volumes:
+      # Encrypted session database (SQLite). Named volume so it survives rebuilds.
+      - session-data:/app/data
+    # Hardening: read-only root filesystem, no privilege escalation, minimal caps.
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+
+volumes:
+  session-data:

@@ -29,7 +29,7 @@
 
 Valorant Store Checker is a production-grade, security-hardened Next.js application that authenticates with Riot's OAuth flow and surfaces your personalized in-game store. It supports multi-step authentication (including MFA and browser-based fallback), multi-account switching, store rotation history, wishlists, inventory browsing, and full profile/rank display — all without ever opening the Valorant client.
 
-Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server, and all Riot cookies are stored server-side only. The project ships with a comprehensive Vitest test suite and is designed for self-hosting on Vercel.
+Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server, and all Riot cookies are stored server-side only. The project ships with a comprehensive Vitest test suite and can be self-hosted on Vercel or with Docker.
 
 ---
 
@@ -173,6 +173,51 @@ For more information, visit [diploi.com](https://diploi.com/).
 3. Click **Deploy**.
 
 > Every push to `main` triggers an automatic redeployment.
+
+### Option 3: Self-host with Docker
+
+Run the app on your own server (VPS, home lab, NAS) so that Riot session
+cookies never leave infrastructure you control.
+
+1. **Clone and configure:**
+
+   ```bash
+   git clone https://github.com/diegorv/Valorant-Store-Checker.git
+   cd Valorant-Store-Checker
+   cp .env.example .env
+   ```
+
+2. **Generate the two secrets** and paste them into `.env`:
+
+   ```bash
+   openssl rand -base64 32   # SESSION_SECRET
+   openssl rand -hex 32      # ENCRYPTION_KEY (must be 64 hex chars)
+   ```
+
+3. **Build and start:**
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000).
+
+What the Docker setup does:
+
+- Multi-stage build on `node:22-bookworm-slim` using Next.js standalone output (no dev dependencies, no Playwright browsers in the image).
+- Runs as an unprivileged user with a read-only root filesystem, all capabilities dropped and `no-new-privileges`.
+- Stores the encrypted SQLite session database in a named volume (`session-data`), so sessions survive rebuilds. Set `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` in `.env` if you prefer a remote database.
+- Publishes the port on `127.0.0.1` only. To expose it on a LAN or the internet, put a TLS reverse proxy in front of it. Production session cookies are marked `Secure`, so browsers only send them over HTTPS (plain `http://localhost` also works). Minimal Caddy example:
+
+  ```caddyfile
+  store.example.com {
+      reverse_proxy 127.0.0.1:3000
+  }
+  ```
+
+- Refuses to start if `SESSION_SECRET` or `ENCRYPTION_KEY` is missing, so cookies are never written to disk unencrypted.
+
+> **Note:** the "Launch Riot Login" button opens a browser _on the machine running the server_ (via `xdg-open` / `open`), so it does nothing useful inside a container. Use the credentials + MFA login, or log in on any browser and paste the redirect URL / cookies.
 
 ### Turso Database (Optional but Recommended)
 
