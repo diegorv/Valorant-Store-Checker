@@ -247,7 +247,7 @@ Without a persistent Turso database, sessions are stored in a local SQLite file 
 ### Prerequisites
 
 - Node.js 20+
-- npm
+- pnpm (the versions are pinned in `mise.toml`)
 
 ### Setup
 
@@ -261,7 +261,7 @@ Without a persistent Turso database, sessions are stored in a local SQLite file 
 2. **Install dependencies:**
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. **Create `.env.local`:**
@@ -275,18 +275,18 @@ Without a persistent Turso database, sessions are stored in a local SQLite file 
 4. **Start the development server:**
 
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 5. Open [http://localhost:3000](http://localhost:3000).
 
-`npm run dev` runs without Redis unless you set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, so every page load goes straight to Riot and HenrikDev. To test with caching and rate limiting, use the [Docker setup](#option-2-self-host-with-docker) instead.
+`pnpm dev` runs without Redis unless you set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, so every page load goes straight to Riot and HenrikDev. To test with caching and rate limiting, use the [Docker setup](#option-2-self-host-with-docker) instead.
 
 ### Running Tests
 
 ```bash
-npm test              # run all tests
-npm run test:coverage # run with coverage report
+pnpm test              # run all tests
+pnpm test:coverage     # run with coverage report
 ```
 
 The test suite uses Vitest + MSW v2 for API mocking. Coverage thresholds are strictly enforced.

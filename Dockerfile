@@ -6,10 +6,10 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Playwright is a devDependency used only for e2e tests; never download browsers.
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm ci --no-audit --no-fund
+RUN npm install -g pnpm@12.4.2 && pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
 # Stage 2: build the Next.js app (standalone output)
@@ -25,7 +25,7 @@ COPY . .
 # it is not baked into the output and the real value comes from the runtime env.
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SESSION_SECRET=build-time-placeholder-not-used-at-runtime
-RUN npm run build
+RUN npm install -g pnpm@12.4.2 && pnpm build
 
 # ---------------------------------------------------------------------------
 # Stage 3: minimal runtime image
