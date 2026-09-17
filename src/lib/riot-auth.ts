@@ -31,7 +31,10 @@ import {
 const log = createLogger("riot-auth");
 
 export interface AuthResponse {
-  type: "response" | "multifactor";
+  // Not a literal union: Riot reports failures over HTTP 200 with types beyond
+  // `response`/`multifactor`. See AuthResponseSchema.
+  type: string;
+  error?: string | null;
   response?: {
     mode?: string;
     parameters?: {
@@ -44,7 +47,7 @@ export interface AuthResponse {
     methods?: string[];
     multiFactorCodeLength?: number;
   };
-  country?: string;
+  country?: string | null;
 }
 
 export interface AuthTokens {
@@ -276,7 +279,7 @@ export async function authenticateRiotAccount(
     const allCookies = mergeCookies(cookies, authSetCookies);
 
     const raw = await authResponse.json();
-    const authData = parseWithLog(AuthResponseSchema, raw, "AuthResponse") as AuthResponse | null;
+    const authData = parseWithLog(AuthResponseSchema, raw, "AuthResponse");
     if (!authData) {
       return { success: false, error: "Invalid auth response from Riot" };
     }
@@ -295,8 +298,7 @@ export async function authenticateRiotAccount(
 
     // Step 3b: Handle auth failure
     if (authData.type !== "response") {
-      const errorDetail =
-        (authData as AuthResponse & { error?: string }).error || "Unknown authentication error";
+      const errorDetail = authData.error || "Unknown authentication error";
       const country = authData.country ? ` (Region: ${authData.country})` : "";
       return {
         success: false,
@@ -417,7 +419,7 @@ export async function submitMfa(
     const allCookies = mergeCookies(cookie, mfaSetCookies);
 
     const mfaRaw = await mfaResponse.json();
-    const mfaData = parseWithLog(AuthResponseSchema, mfaRaw, "AuthResponse") as AuthResponse | null;
+    const mfaData = parseWithLog(AuthResponseSchema, mfaRaw, "AuthResponse");
     if (!mfaData) {
       return { success: false, error: "Invalid MFA response from Riot" };
     }
