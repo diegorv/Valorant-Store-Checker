@@ -30,7 +30,7 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/lib/accounts", () => ({
   getActiveAccount: vi.fn(),
-  removeAccount: vi.fn().mockResolvedValue(undefined),
+  removeAccount: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/lib/store-cache", () => ({

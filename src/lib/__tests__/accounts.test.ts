@@ -450,7 +450,7 @@ describe("removeAccount", () => {
     });
     mockCookiesGet.mockReturnValue({ value: "accounts-token" });
 
-    await removeAccount("remove-1");
+    await expect(removeAccount("remove-1")).resolves.toBe(true);
 
     // Account should have been removed (deleteAccountSession called)
     expect(mockDeleteSessionFromStore).toHaveBeenCalled();
@@ -489,7 +489,7 @@ describe("removeAccount", () => {
       createdAt: Date.now(),
     });
 
-    await removeAccount("active-1");
+    await expect(removeAccount("active-1")).resolves.toBe(true);
 
     // Should switch to remaining account
     expect(mockCreateSession).toHaveBeenCalled();
@@ -506,7 +506,7 @@ describe("removeAccount", () => {
     });
     mockCookiesGet.mockReturnValue({ value: "accounts-token" });
 
-    await removeAccount("last-account");
+    await expect(removeAccount("last-account")).resolves.toBe(true);
 
     // Should delete cookies
     expect(mockCookiesDelete).toHaveBeenCalled();
@@ -521,8 +521,17 @@ describe("removeAccount", () => {
     });
     mockCookiesGet.mockReturnValue({ value: "accounts-token" });
 
-    // Should not throw
-    await expect(removeAccount("non-existent")).resolves.not.toThrow();
+    // Should not throw, and should report that nothing was removed
+    await expect(removeAccount("non-existent")).resolves.toBe(false);
+  });
+
+  it("reports nothing removed when there is no registry at all", async () => {
+    // No accounts cookie — getAccounts() resolves to null
+    mockCookiesGet.mockReturnValue(undefined);
+    mockJwtVerify.mockRejectedValue(new Error("no token"));
+
+    await expect(removeAccount("any-puuid")).resolves.toBe(false);
+    expect(mockDeleteSessionFromStore).not.toHaveBeenCalled();
   });
 });
 

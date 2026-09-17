@@ -305,12 +305,16 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
   return true;
 }
 
-export async function removeAccount(puuid: string): Promise<void> {
+/**
+ * Remove an account from the registry
+ * @returns true if the account was removed, false if it was not in the registry
+ */
+export async function removeAccount(puuid: string): Promise<boolean> {
   const registry = await getAccounts();
 
   if (!registry) {
     log.warn("No account registry found");
-    return;
+    return false;
   }
 
   // Find account index
@@ -320,7 +324,7 @@ export async function removeAccount(puuid: string): Promise<void> {
 
   if (accountIndex < 0) {
     log.warn(`Account ${getShortPuuid(puuid)} not found in registry`);
-    return;
+    return false;
   }
 
   // Remove account from registry
@@ -357,12 +361,14 @@ export async function removeAccount(puuid: string): Promise<void> {
       cookieStore.delete(SESSION_COOKIE_NAME);
       cookieStore.delete(ACCOUNTS_COOKIE_NAME);
       log.info("No accounts remaining, cleared all sessions");
-      return;
+      return true;
     }
   }
 
   // Save updated registry
   await saveAccounts(registry);
+
+  return true;
 }
 
 /**
