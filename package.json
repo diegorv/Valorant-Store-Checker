@@ -14,7 +14,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.0",
+    "@libsql/client": "^0.18.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-virtual": "^3.13.23",
     "@upstash/ratelimit": "^2.0.8",
