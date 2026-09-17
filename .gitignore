@@ -62,4 +62,3 @@ test-results/
 # stryker
 /reports/
 .stryker-tmp/
-.stryker-incremental.json

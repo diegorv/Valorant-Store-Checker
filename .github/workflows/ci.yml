@@ -67,9 +67,8 @@ jobs:
   mutation:
     name: Mutation testing
     runs-on: ubuntu-latest
-    # O command runner roda a suíte inteira por mutante, então isto é lento.
     # Não bloqueia o merge: stryker.config.json usa thresholds.break = null.
-    timeout-minutes: 180
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -86,17 +85,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      # Sem esse cache toda rodada é uma rodada cheia (~45 min). Com ele, só os
-      # mutantes de arquivos que mudaram são reavaliados. PRs leem o cache que a
-      # última execução na main gravou.
-      - name: Restore Stryker incremental cache
-        uses: actions/cache@v4
-        with:
-          path: .stryker-incremental.json
-          key: stryker-incremental-${{ github.sha }}
-          restore-keys: |
-            stryker-incremental-
 
       - name: Run Stryker
         run: pnpm mutation
