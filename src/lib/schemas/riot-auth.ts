@@ -40,7 +40,7 @@ export const UserInfoSchema = z
       })
       .passthrough()
       .nullish(),
-    affinity: z.record(z.string()).nullish(),
+    affinity: z.record(z.string(), z.string()).nullish(),
   })
   .passthrough();
 
