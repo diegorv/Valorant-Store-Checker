@@ -154,97 +154,80 @@ const cachedShardByPuuid = new Map<string, string>();
 
 /**
  * Helper to fetch data with automatic shard fallback.
- * For initial shard discovery (no cached shard), tries all shards in parallel
- * and uses whichever responds first. On failure, falls back to sequential
- * retry with reduced timeout.
+ *
+ * Tries a single shard first — the one cached for this PUUID, or the session
+ * region on first use — and remembers it on success, so the common case is one
+ * request. Only when that shard fails are the other shards probed in parallel
+ * (skipping any that map to an already-tried PD host); probes that errored at
+ * the network level get one sequential retry with a longer timeout.
  */
 export async function fetchWithShardFallback(
   tokens: StoreTokens,
   endpointBuilder: (pdUrl: string) => string
 ): Promise<Response> {
   const regions = ["na", "eu", "ap", "kr"];
-
-  // Determine the order of regions to try
-  const cachedShard = cachedShardByPuuid.get(tokens.puuid);
-  const attempts: string[] = [cachedShard || tokens.region];
-  for (const r of regions) {
-    if (!attempts.includes(r)) attempts.push(r);
-  }
-  // Deduplicate to prevent redundant fetch calls when cachedShard === tokens.region
-  const uniqueAttempts = [...new Set(attempts)];
+  const preferred = cachedShardByPuuid.get(tokens.puuid) ?? tokens.region;
 
   const baseHeaders = await getStoreHeaders(tokens);
 
-  // Fast path: try cached shard first with a shorter timeout
-  if (cachedShard && cachedShard !== tokens.region) {
-    const pdUrl = getPdUrl(cachedShard);
-    const url = endpointBuilder(pdUrl);
-    log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on cached shard: ${cachedShard.toUpperCase()}`);
+  // Fast path: one request to the preferred shard
+  try {
+    const response = await fetchWithRetry(endpointBuilder(getPdUrl(preferred)), baseHeaders, 10_000, true);
+    if (response.ok) {
+      cachedShardByPuuid.set(tokens.puuid, preferred);
+      return response;
+    }
+    if (![403, 404, 405].includes(response.status)) {
+      // Not a wrong-shard error (e.g. 401 expired token) — other shards won't help
+      const errorBody = await response.text().catch(() => "No error body");
+      throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
+    }
+    log.warn(`Shard ${preferred.toUpperCase()} failed with ${response.status}, trying other shards`);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Request failed with status")) throw err;
+    log.warn(`Network error on ${preferred.toUpperCase()}, trying other shards:`, err);
+  }
 
-    try {
-      const response = await fetchWithRetry(url, baseHeaders, 10_000, false);
-      if (response.ok) {
-        return response;
-      }
-    } catch {
-      // Cached shard failed, fall through to parallel discovery
-      log.warn(`Cached shard ${cachedShard.toUpperCase()} failed, trying all shards in parallel`);
+  // Remaining shards, deduplicated by PD host (e.g. "am" and "na" share pd.na)
+  const triedHosts = new Set([getPdUrl(preferred)]);
+  const others = [tokens.region, ...regions].filter((region) => {
+    const host = getPdUrl(region);
+    if (triedHosts.has(host)) return false;
+    triedHosts.add(host);
+    return true;
+  });
+
+  const results = await Promise.allSettled(
+    others.map(region => {
+      log.info(`Parallel shard probe: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
+      return fetchWithRetry(endpointBuilder(getPdUrl(region)), baseHeaders, 10_000, true).then(r => ({ response: r, region }));
+    })
+  );
+
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value.response.ok) {
+      const region = result.value.region;
+      log.info(`Shard discovery success: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
+      cachedShardByPuuid.set(tokens.puuid, region);
+      return result.value.response;
     }
   }
 
-  // Initial discovery: try all remaining shards in parallel
-  const remainingRegions = uniqueAttempts.filter(r => r !== cachedShard || !cachedShard);
-  if (remainingRegions.length > 1) {
-    const results = await Promise.allSettled(
-      remainingRegions.map(region => {
-        const pdUrl = getPdUrl(region);
-        const url = endpointBuilder(pdUrl);
-        log.info(`Parallel shard probe: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
-        return fetchWithRetry(url, baseHeaders, 10_000, true).then(r => ({ response: r, region }));
-      })
-    );
-
-    // Use first successful response
-    for (const result of results) {
-      if (result.status === "fulfilled" && result.value.response.ok) {
-        const region = result.value.region;
-        log.info(`Shard discovery success: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
-        if (region !== tokens.region) {
-          cachedShardByPuuid.set(tokens.puuid, region);
-        }
-        return result.value.response;
-      }
-    }
-  }
-
-  // Fallback: try remaining regions sequentially with longer timeout
+  // Retry shards whose probe failed at the network level (timeouts), with a longer timeout
   let lastError: Error | null = null;
-  for (const region of remainingRegions) {
-    const pdUrl = getPdUrl(region);
-    const url = endpointBuilder(pdUrl);
-
+  for (const [i, result] of results.entries()) {
+    if (result.status === "fulfilled") continue;
+    const region = others[i]!;
     log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on shard: ${region.toUpperCase()}`);
 
     try {
-      const response = await fetchWithRetry(url, baseHeaders, 30_000, false);
+      const response = await fetchWithRetry(endpointBuilder(getPdUrl(region)), baseHeaders, 30_000, false);
       if (response.ok) {
-        if (region !== tokens.region && region !== cachedShard) {
-          log.info(`Discovered correct shard: ${region.toUpperCase()}`);
-          cachedShardByPuuid.set(tokens.puuid, region);
-        }
+        log.info(`Discovered correct shard: ${region.toUpperCase()}`);
+        cachedShardByPuuid.set(tokens.puuid, region);
         return response;
       }
-
-      // If 404/403/405, it might be the wrong shard or method, so try next shard
-      if ([403, 404, 405].includes(response.status)) {
-        log.warn(`Shard ${region.toUpperCase()} failed with ${response.status}. Retrying...`);
-        const bodyText = await response.text().catch(() => "");
-        log.warn(`Error body: ${bodyText}`);
-        continue;
-      }
-
-      const errorBody = await response.text().catch(() => "No error body");
-      throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
+      lastError = new Error(`Request failed with status ${response.status}`);
     } catch (err) {
       lastError = err as Error;
       log.warn(`Network error on ${region.toUpperCase()}:`, err);

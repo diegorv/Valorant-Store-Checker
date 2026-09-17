@@ -272,3 +272,80 @@ describe("fetchWithShardFallback — HTTP method selection", () => {
     expect(methodFor("/personalization/v3/")).toBe("GET");
   });
 });
+
+describe("fetchWithShardFallback — shard selection", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchWithShardFallback: typeof import("@/lib/riot-store").fetchWithShardFallback;
+
+  const walletUrl = (pdUrl: string) => `${pdUrl}/store/v1/wallet/${MOCK_TOKENS.puuid}`;
+
+  /** Mocks fetch so only the given PD hosts succeed; everything else on pvp.net 404s. */
+  function mockShards(okHosts: string[]) {
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.includes("valorant-api.com")) return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
+      const host = new URL(url).host;
+      return Promise.resolve(okHosts.includes(host) ? makeOkResponse(MOCK_WALLET) : makeFailResponse(404));
+    });
+  }
+
+  function pdHostsCalled(): string[] {
+    return fetchSpy.mock.calls
+      .map((c: unknown[]) => c[0] as string)
+      .filter((url: string) => url.includes(".a.pvp.net"))
+      .map((url: string) => new URL(url).host);
+  }
+
+  beforeEach(async () => {
+    vi.resetModules();
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+    const mod = await import("@/lib/riot-store");
+    fetchWithShardFallback = mod.fetchWithShardFallback;
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it("calls only the session region's shard when it succeeds", async () => {
+    mockShards(["pd.na.a.pvp.net"]);
+
+    const response = await fetchWithShardFallback({ ...MOCK_TOKENS, region: "na" }, walletUrl);
+
+    expect(response.ok).toBe(true);
+    expect(pdHostsCalled()).toEqual(["pd.na.a.pvp.net"]);
+  });
+
+  it("remembers the shard even when it matches the session region", async () => {
+    mockShards(["pd.na.a.pvp.net"]);
+    const tokens = { ...MOCK_TOKENS, region: "am" }; // affinity "am" maps to the NA PD host
+
+    await fetchWithShardFallback(tokens, walletUrl);
+    fetchSpy.mockClear();
+    await fetchWithShardFallback(tokens, walletUrl);
+
+    expect(pdHostsCalled()).toEqual(["pd.na.a.pvp.net"]);
+  });
+
+  it("probes other shards only when the session region fails, then remembers the winner", async () => {
+    mockShards(["pd.eu.a.pvp.net"]);
+    const tokens = { ...MOCK_TOKENS, region: "na" };
+
+    const first = await fetchWithShardFallback(tokens, walletUrl);
+    expect(first.ok).toBe(true);
+    expect(pdHostsCalled()[0]).toBe("pd.na.a.pvp.net");
+    expect(pdHostsCalled()).toContain("pd.eu.a.pvp.net");
+
+    fetchSpy.mockClear();
+    await fetchWithShardFallback(tokens, walletUrl);
+    expect(pdHostsCalled()).toEqual(["pd.eu.a.pvp.net"]);
+  });
+
+  it("never calls the same PD host twice in one lookup", async () => {
+    mockShards([]); // every shard fails
+
+    await fetchWithShardFallback({ ...MOCK_TOKENS, region: "am" }, walletUrl).catch(() => {});
+
+    const hosts = pdHostsCalled();
+    expect(hosts.length).toBe(new Set(hosts).size);
+  });
+});
