@@ -87,7 +87,7 @@ describe("getStorefront — client version fetching", () => {
 
     await getStorefront(MOCK_TOKENS);
 
-    const urls = fetchSpy.mock.calls.map((call) => call[0] as string);
+    const urls = fetchSpy.mock.calls.map((call: unknown[]) => call[0] as string);
     expect(urls[0]).toBe("https://valorant-api.com/v1/version");
     // riotclient.riotgames.com no longer resolves — it must never be called
     expect(urls.some((url: string) => url.includes("riotclient.riotgames.com"))).toBe(false);
@@ -211,7 +211,7 @@ describe("getWallet — client version header inclusion", () => {
 
     // Verify version endpoint was called first (for client version)
     const manifestCalls = fetchSpy.mock.calls.filter(
-      (call) => (call[0] as string).includes("valorant-api.com/v1/version")
+      (call: unknown[]) => (call[0] as string).includes("valorant-api.com/v1/version")
     );
     expect(manifestCalls.length).toBeGreaterThan(0);
   });
