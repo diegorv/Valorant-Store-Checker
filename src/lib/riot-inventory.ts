@@ -27,6 +27,25 @@ interface CacheEntry {
 const inventoryCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// The TTL above is only checked when the same PUUID is read again, so an entry
+// for a player who never comes back is never freed. Cap the map like
+// store-cache.ts caps its Redis sorted set.
+const MAX_CACHE_ENTRIES = 50;
+
+/**
+ * Stores an inventory in the module cache, evicting the oldest insertion first
+ * once the cap is reached. Map iterates in insertion order and re-setting an
+ * existing key keeps its position, so the first key is the oldest insertion.
+ */
+function cacheInventory(puuid: string, data: InventoryData, fetchedAt: number): void {
+  if (!inventoryCache.has(puuid) && inventoryCache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = inventoryCache.keys().next().value;
+    if (oldest !== undefined) inventoryCache.delete(oldest);
+  }
+
+  inventoryCache.set(puuid, { data, fetchedAt });
+}
+
 /**
  * Extracts weapon name from skin display name
  * E.g., "Prime Vandal" -> "Vandal", "Glitchpop Phantom" -> "Phantom"
@@ -125,7 +144,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
       weaponCategories: [],
       editionCategories: [],
     };
-    inventoryCache.set(tokens.puuid, { data: emptyData, fetchedAt: now });
+    cacheInventory(tokens.puuid, emptyData, now);
     return emptyData;
   }
 
@@ -266,7 +285,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
   };
 
   // Cache the result
-  inventoryCache.set(tokens.puuid, { data: inventoryData, fetchedAt: now });
+  cacheInventory(tokens.puuid, inventoryData, now);
   
   // Persist to central cache for API fallback
   const { setCachedInventory } = await import("./inventory-cache");
