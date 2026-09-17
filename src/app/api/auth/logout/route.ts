@@ -18,6 +18,13 @@ export async function POST(request: NextRequest) {
     await clearCachedStore(session.puuid);
   }
 
+  // Revoke the session the cookie points at BEFORE touching the registry.
+  // removeAccount() rewrites this cookie — clearing it when no account is left,
+  // or replacing it via createSession() when one remains — so a deleteSession()
+  // placed after it revokes the wrong row, or none at all, and leaves the JWT
+  // the user just logged out of valid for its full 30 days.
+  await deleteSession();
+
   // Get active account and remove it from the registry
   // This will automatically switch to next account or clear session if none remain
   const activeAccount = await getActiveAccount();
@@ -25,8 +32,9 @@ export async function POST(request: NextRequest) {
     await removeAccount(activeAccount.puuid);
   }
 
-  // Explicitly delete the main session to clear the session store and invalidate cache
-  // This ensures complete logout even if removeAccount switched to another account
+  // removeAccount() may have switched to a remaining account and issued a fresh
+  // session. Logout must be complete, so revoke that one too and make sure the
+  // cookie ends up cleared.
   await deleteSession();
 
   const response = NextResponse.json({ success: true });
