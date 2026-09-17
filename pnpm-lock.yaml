@@ -182,8 +182,8 @@ importers:
         specifier: ^1.38.4
         version: 1.38.4
       ccusage:
-        specifier: ^18.0.5
-        version: 18.0.5
+        specifier: ^20.0.20
+        version: 20.0.20
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -390,6 +390,36 @@ packages:
   '@bcoe/v8-coverage@1.0.2':
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
+
+  '@ccusage/ccusage-darwin-arm64@20.0.20':
+    resolution: {integrity: sha512-TgvU1u9bjgBD+CuQqj55PNAl3LnrW9awCeXDkPS0acntTP72A4gdGjCBZ+LAmR8HECBlvD9lSDqWHhpCX9kZQw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@ccusage/ccusage-darwin-x64@20.0.20':
+    resolution: {integrity: sha512-UkanWl+XRiC7rgTG7eZDy4xqleQOZ3xd8i6RBW77p2OhHheBpGznMkqS7/5rPT2JQ10cnkOKqjxFE09CLAmIrQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@ccusage/ccusage-linux-arm64@20.0.20':
+    resolution: {integrity: sha512-iiURX4sqr3S7jrDJW6P6F0QtP6lx7lkhqqxBQXzaL/66xjhUkCDHKzRglixPuSBxkNaKGL6RAtKGk/ubFGvdBg==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@ccusage/ccusage-linux-x64@20.0.20':
+    resolution: {integrity: sha512-qG5LcyerzKJVPu3hTRHYaWo6VtKB9uyGbRdviw4imInIWRQdPcrEAIb22oCO7iWEfAEv5ZYmTjYWJLX+dR5HXg==}
+    cpu: [x64]
+    os: [linux]
+
+  '@ccusage/ccusage-win32-arm64@20.0.20':
+    resolution: {integrity: sha512-BUXxVGbZ6WtA8RGqjukzkKFmS2x2cjMTV1kU5weZ4+K/uPHIHJjDIDnSKJtNAllwpwlPKpC+k3UdhkapeVM10w==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@ccusage/ccusage-win32-x64@20.0.20':
+    resolution: {integrity: sha512-6R9cdLuRy529ewdkKbwtjx7boCQNFK8KG1F6d5G/pw2ApKRmucWcwjFo/7sNULQtZMyUxhYa40tUnWy9L/yTMA==}
+    cpu: [x64]
+    os: [win32]
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -1709,9 +1739,8 @@ packages:
     resolution: {integrity: sha512-5ON+q7jCTgMp9cjpu4Jo6XbvfYwSB2Ow3kzHKfIyJfaCAOHLbdKPQqGKgfED/R5B+3TFFfe8pegYA+b423SRyA==}
     engines: {node: '>=10.0.0'}
 
-  ccusage@18.0.5:
-    resolution: {integrity: sha512-bnZrVbGm5h7hIIOH3FZFaDxKgJLLHhWDWIv7/9M6/O373YM6RAwsG9hxZXA1ep+C2ISiNEX6MYVoXgkoSuFf9Q==}
-    engines: {node: '>=20.19.4'}
+  ccusage@20.0.20:
+    resolution: {integrity: sha512-xctCxhwK4Nqo1i3zSa1+JM3wN/oSdPSglzgxIWZyk9KLsLyQQMfntG3NJHoRH3DJHzkvG1EzVwH/xSI2z6VH3Q==}
     hasBin: true
 
   chai@6.2.2:
@@ -3640,6 +3669,24 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
+  '@ccusage/ccusage-darwin-arm64@20.0.20':
+    optional: true
+
+  '@ccusage/ccusage-darwin-x64@20.0.20':
+    optional: true
+
+  '@ccusage/ccusage-linux-arm64@20.0.20':
+    optional: true
+
+  '@ccusage/ccusage-linux-x64@20.0.20':
+    optional: true
+
+  '@ccusage/ccusage-win32-arm64@20.0.20':
+    optional: true
+
+  '@ccusage/ccusage-win32-x64@20.0.20':
+    optional: true
+
   '@emnapi/core@1.8.1':
     dependencies:
       '@emnapi/wasi-threads': 1.1.0
@@ -4775,7 +4822,14 @@ snapshots:
       svg-pathdata: 6.0.3
     optional: true
 
-  ccusage@18.0.5: {}
+  ccusage@20.0.20:
+    optionalDependencies:
+      '@ccusage/ccusage-darwin-arm64': 20.0.20
+      '@ccusage/ccusage-darwin-x64': 20.0.20
+      '@ccusage/ccusage-linux-arm64': 20.0.20
+      '@ccusage/ccusage-linux-x64': 20.0.20
+      '@ccusage/ccusage-win32-arm64': 20.0.20
+      '@ccusage/ccusage-win32-x64': 20.0.20
 
   chai@6.2.2: {}
 

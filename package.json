@@ -19,7 +19,7 @@
     "@tanstack/react-virtual": "^3.14.13",
     "@upstash/ratelimit": "^2.1.0",
     "@upstash/redis": "^1.38.4",
-    "ccusage": "^18.0.5",
+    "ccusage": "^20.0.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dexie": "^4.4.6",
