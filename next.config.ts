@@ -20,9 +20,6 @@ const cspHeader = `
 const nextConfig: NextConfig = {
   // Emit a self-contained server bundle (.next/standalone) for the Docker image.
   output: "standalone",
-  experimental: {
-    optimizeCss: true,
-  },
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 86400,
