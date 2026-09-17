@@ -8,6 +8,11 @@ const eslintConfig = defineConfig([
   ...nextTs,
   security.configs.recommended,
   {
+    // eslint-plugin-react's version auto-detection calls context.getFilename(),
+    // which ESLint 10 removed. Pin the version so detection is skipped.
+    settings: { react: { version: "19.3" } },
+  },
+  {
     rules: {
       // Suppress TanStack Virtual incompatibility warnings — known false positives
       // @tanstack/react-virtual is React 19 compatible but ESLint React hooks plugin
