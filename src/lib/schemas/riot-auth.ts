@@ -59,8 +59,12 @@ export const AuthResponseSchema = z.object({
   idToken: z.string().min(1).optional(),
   expiresAt: z.number().positive().optional(),
   expiresIn: z.number().positive().optional(),
+  // Not `.email()`: Riot masks this address (`u***@example.com`), which no email
+  // validator accepts. Rejecting it fails the whole payload and sends the MFA
+  // challenge down the generic-error path — the exact failure the comments above
+  // exist to avoid. Nothing parses or sends this value; it is displayed as-is.
   multifactor: z.object({
-    email: z.string().email().optional(),
+    email: z.string().optional(),
     method: z.string().optional(),
   }).optional(),
   // Riot API returns tokens in response.parameters.uri for 'response' type
