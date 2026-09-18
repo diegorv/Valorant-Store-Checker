@@ -10,7 +10,7 @@ test.describe("Wishlist", () => {
 
     // Wait for store page to load
     await expect(page).toHaveURL(/\/store/, { timeout: 10000 });
-    await expect(page.getByText("Daily Store")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Daily Store" })).toBeVisible({ timeout: 15000 });
 
     // Find the first wishlist button on a store card
     const wishlistButton = page.getByRole("button", { name: /Add to wishlist|Remove from wishlist/i }).first();
@@ -20,8 +20,19 @@ test.describe("Wishlist", () => {
     const initialAriaLabel = await wishlistButton.getAttribute("aria-label");
     const isInitiallyWishlisted = initialAriaLabel?.includes("Remove");
 
-    // Click the wishlist button
-    await wishlistButton.click();
+    // Click the wishlist button. The UI updates optimistically, so the
+    // aria-label alone proves nothing was persisted — wait for the write to be
+    // acknowledged by the server, otherwise the reload below races it.
+    const [writeResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/wishlist") &&
+          response.request().method() !== "GET",
+        { timeout: 10000 }
+      ),
+      wishlistButton.click(),
+    ]);
+    expect(writeResponse.ok()).toBe(true);
 
     // Wait for the UI to update - aria-label should change
     await expect(wishlistButton).toHaveAttribute(
@@ -34,7 +45,7 @@ test.describe("Wishlist", () => {
     await page.reload();
 
     // Wait for store to re-load
-    await expect(page.getByText("Daily Store")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Daily Store" })).toBeVisible({ timeout: 15000 });
 
     // Assert the wishlist state is the same as after the toggle (persisted)
     const wishlistButtonAfterReload = page.getByRole("button", { name: /Add to wishlist|Remove from wishlist/i }).first();

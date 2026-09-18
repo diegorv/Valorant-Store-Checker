@@ -7,6 +7,9 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noEmit": true,
+    // src/lib/msw/*.ts is loaded by `node --import` (see the dev:e2e script),
+    // and Node's type stripping resolves relative imports by their real .ts path.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

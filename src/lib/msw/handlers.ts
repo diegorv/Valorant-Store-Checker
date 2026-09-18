@@ -11,19 +11,23 @@ import { http, HttpResponse } from "msw";
 import {
   getMockUserInfo,
   getMockEntitlements,
+  getMockOwnedEntitlements,
   getMockStorefront,
   getMockWallet,
   getMockWeaponSkins,
   getMockContentTiers,
   getMockHenrikAccount,
   getMockHenrikMMR,
-} from "./mock-data";
+} from "./mock-data.ts";
 
 // ---------------------------------------------------------------------------
 // API Base URLs (env-aware for testing different regions)
 // ---------------------------------------------------------------------------
 
 const RIOT_API_BASE = process.env.RIOT_API_BASE ?? "https://auth.riotgames.com";
+// Entitlements are served from their own host, not from a path under the auth
+// base. Mirrors RIOT_ENTITLEMENTS_URL in src/lib/riot-tokens.ts.
+const RIOT_ENTITLEMENTS_URL = "https://entitlements.auth.riotgames.com/api/token/v1";
 const PD_API_BASE = process.env.PD_API_BASE ?? "https://pd.na.a.pvp.net";
 const HENRIK_API_BASE = "https://api.henrikdev.xyz";
 const VALORANT_API_BASE = "https://valorant-api.com/v1";
@@ -130,19 +134,23 @@ export const handlers = [
   }),
 
   /**
-   * POST /entitlements.auth.riotgames.com/api/token/v1
+   * POST https://entitlements.auth.riotgames.com/api/token/v1
    * Returns mock entitlements token after token exchange.
+   * Entitlements live on their own host, not under the auth base — this URL
+   * must stay in sync with RIOT_ENTITLEMENTS_URL in src/lib/riot-tokens.ts.
    */
-  http.post(`${RIOT_API_BASE}/entitlements.auth.riotgames.com/api/token/v1`, () => {
+  http.post(RIOT_ENTITLEMENTS_URL, () => {
     return HttpResponse.json(getMockEntitlements());
   }),
 
   /**
    * GET /userinfo
-   * Returns mock user info (PUUID, region, game name, tag).
+   * Returns mock user info (PUUID, region, game name, tag). The bearer token
+   * selects the identity, which is what makes the multi-account flow testable.
    */
-  http.get(`${RIOT_API_BASE}/userinfo`, () => {
-    return HttpResponse.json(getMockUserInfo());
+  http.get(`${RIOT_API_BASE}/userinfo`, ({ request }) => {
+    const accessToken = request.headers.get("Authorization")?.replace(/^Bearer /, "");
+    return HttpResponse.json(getMockUserInfo(accessToken));
   }),
 
   // ============================================================
@@ -178,6 +186,16 @@ export const handlers = [
     return HttpResponse.json(getMockWallet(puuid as string));
   }),
 
+  /**
+   * GET /store/v1/entitlements/:puuid/:itemTypeId
+   * Returns the player's owned items for the requested item type. The
+   * collection page (/inventory) reads weapon skins from here.
+   */
+  http.get(`${PD_API_BASE}/store/v1/entitlements/:puuid/:itemTypeId`, ({ params }) => {
+    const { itemTypeId } = params;
+    return HttpResponse.json(getMockOwnedEntitlements(itemTypeId as string));
+  }),
+
   // ============================================================
   // Valorant-API endpoints
   // ============================================================
@@ -187,7 +205,7 @@ export const handlers = [
    * Returns mock client version - used by riot-store.ts to
    * construct request headers.
    */
-  http.get(`${VALORANT_API_BASE}/v1/version`, () => {
+  http.get(`${VALORANT_API_BASE}/version`, () => {
     return HttpResponse.json({
       status: 200,
       data: {
@@ -202,7 +220,7 @@ export const handlers = [
    * GET /v1/weapons/skins
    * Returns mock weapon skins array.
    */
-  http.get(`${VALORANT_API_BASE}/v1/weapons/skins`, () => {
+  http.get(`${VALORANT_API_BASE}/weapons/skins`, () => {
     return HttpResponse.json(getMockWeaponSkins());
   }),
 
@@ -210,7 +228,7 @@ export const handlers = [
    * GET /v1/contenttiers
    * Returns mock content tiers (rarity levels).
    */
-  http.get(`${VALORANT_API_BASE}/v1/contenttiers`, () => {
+  http.get(`${VALORANT_API_BASE}/contenttiers`, () => {
     return HttpResponse.json(getMockContentTiers());
   }),
 
@@ -218,7 +236,7 @@ export const handlers = [
    * GET /v1/bundles
    * Returns empty bundles array (featured bundle handled by storefront).
    */
-  http.get(`${VALORANT_API_BASE}/v1/bundles`, () => {
+  http.get(`${VALORANT_API_BASE}/bundles`, () => {
     return HttpResponse.json({
       status: 200,
       data: [],
@@ -229,7 +247,7 @@ export const handlers = [
    * GET /v1/competitivetiers
    * Returns mock competitive tiers for rank icon lookup.
    */
-  http.get(`${VALORANT_API_BASE}/v1/competitivetiers`, () => {
+  http.get(`${VALORANT_API_BASE}/competitivetiers`, () => {
     return HttpResponse.json({
       status: 200,
       data: [
