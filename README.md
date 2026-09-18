@@ -307,6 +307,50 @@ pnpm test:coverage     # run with coverage report
 
 The test suite uses Vitest + MSW v2 for API mocking. Coverage thresholds are strictly enforced.
 
+### End-to-End Tests
+
+```bash
+pnpm test:e2e          # Playwright — starts its own mocked server
+```
+
+`pnpm test` does **not** run `e2e/`. The end-to-end suite is a separate
+Playwright run with its own CI job (`E2E` in `.github/workflows/ci.yml`), so a
+break there shows up on the pull request rather than sitting unnoticed.
+
+Playwright starts the server itself with `pnpm dev:e2e`, which is `next dev`
+plus `node --import src/lib/msw/start.ts`. That `--import` is what installs the
+MSW mock server — **plain `next dev` does not mock anything**, so every Riot
+call would go to the real API and the login would fail with a 401.
+
+**The suite does not use port 3000, and does not reuse a running server.** Port
+3000 is a popular default: a Grafana container, another dev server or any
+unrelated service listening there answers `200` on both `/` and `/login`. With
+`reuseExistingServer` a suite pointed at 3000 happily runs against that
+stranger, and the failures make no sense (or, worse, a few assertions pass by
+accident). `playwright.config.ts` therefore uses port `3101` (override with
+`E2E_PORT`) and `reuseExistingServer: false`, so an occupied port is a loud
+error instead of a silent wrong target:
+
+```
+Error: http://localhost:3101/login is already used, make sure that nothing is
+running on the port/url or set reuseExistingServer:true in config.webServer.
+```
+
+A `curl` returning 200 is not proof the app is up. Check the `[WebServer]` lines
+in the Playwright output for `▲ Next.js` and `[MSW] Node server started`.
+
+Two more things the config takes care of, worth knowing when a run misbehaves:
+
+- **The suite never writes to your database.** MSW only intercepts HTTP, and
+  `.env.local` may point `TURSO_DATABASE_URL` at a real hosted database — the
+  wishlist test writes, so the run would edit it for real. `webServer.env`
+  therefore blanks that variable and sets `SESSION_DB_PATH=.session-data/e2e.db`,
+  a throwaway local SQLite file.
+- **Stop your own `pnpm dev` first.** `next dev` refuses to start a second dev
+  server for the same directory (`⨯ Another next dev server is already
+  running.`), and Playwright reports it only as
+  `Process from config.webServer was not able to start. Exit code: 1`.
+
 ### Mutation Testing
 
 ```bash

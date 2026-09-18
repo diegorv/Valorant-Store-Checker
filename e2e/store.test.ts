@@ -12,11 +12,11 @@ test.describe("Store Page", () => {
     await expect(page).toHaveURL(/\/store/, { timeout: 10000 });
 
     // Wait for store content to load
-    await expect(page.getByText("Daily Store")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Daily Store" })).toBeVisible({ timeout: 15000 });
 
     // Should see skin names rendered (from mock data)
-    await expect(page.getByText("Prime Vandal")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("Reaver Omega")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("article", { name: /^Prime Vandal,/ })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("article", { name: /^Reaver Omega,/ })).toBeVisible({ timeout: 15000 });
 
     // Should see wallet balance visible (VP and RP amounts from mock wallet data)
     await expect(page.getByText("5,000")).toBeVisible({ timeout: 10000 });

@@ -15,6 +15,6 @@ test.describe("Authentication Flow", () => {
     await expect(page).toHaveURL(/\/store/, { timeout: 10000 });
 
     // Should see store content
-    await expect(page.getByText("Your Store")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Your Store" })).toBeVisible({ timeout: 10000 });
   });
 });

@@ -19,6 +19,13 @@ import type { HenrikAccount, HenrikMMRData } from "@/lib/henrik-api";
 /** Mock PUUID used across all mock data for consistency */
 export const MOCK_PUUID = "mock-puuid-00000000-0000-0000-0000-000000000000";
 
+/**
+ * Second mock identity, so the multi-account flow has a second account to
+ * switch to. Selected by pasting an auth URL carrying SECOND_ACCOUNT_TOKEN.
+ */
+export const MOCK_PUUID_2 = "mock-puuid-11111111-1111-1111-1111-111111111111";
+export const SECOND_ACCOUNT_TOKEN = "mock_access_token_2";
+
 /** Mock skin UUIDs that appear in the storefront */
 export const MOCK_SKIN_UUID_1 = "9a1c1b1b-549b-4b53-9cce-1bc3c3f4d3e4";
 export const MOCK_SKIN_UUID_2 = "5a3c9b3a-4e2d-4f7c-8c9e-2b3a4c5d6e7f";
@@ -30,6 +37,14 @@ const RP_ID = "e59aa87c-4cbf-517a-5983-6e81511be9b7";
 /** Weapon skin item type ID */
 const WEAPON_SKIN_ITEM_TYPE = "e7c63390-eda7-46e0-bb7a-a6abdacd2433";
 
+/**
+ * Skin LEVEL UUIDs owned by the mock player. Riot's entitlements endpoint
+ * returns level UUIDs, which getWeaponSkinsByLevelUuids() resolves back to the
+ * parent skins below — so these must match the `levels` in getMockWeaponSkins().
+ */
+export const MOCK_SKIN_LEVEL_UUID_1 = "mock-level-uuid-1";
+export const MOCK_SKIN_LEVEL_UUID_2 = "mock-level-uuid-2";
+
 // ---------------------------------------------------------------------------
 // Auth mock data
 // ---------------------------------------------------------------------------
@@ -38,10 +53,12 @@ const WEAPON_SKIN_ITEM_TYPE = "e7c63390-eda7-46e0-bb7a-a6abdacd2433";
  * Mock user info response from Riot /userinfo endpoint.
  * Returns a shape matching UserInfoSchema (src/lib/schemas/riot-auth.ts).
  */
-export function getMockUserInfo(): Record<string, unknown> {
+export function getMockUserInfo(accessToken?: string): Record<string, unknown> {
+  const isSecondAccount = accessToken === SECOND_ACCOUNT_TOKEN;
+
   return {
     country: "US",
-    sub: MOCK_PUUID,
+    sub: isSecondAccount ? MOCK_PUUID_2 : MOCK_PUUID,
     email_verified: true,
     phone_number_verified: true,
     account_verified: true,
@@ -53,8 +70,8 @@ export function getMockUserInfo(): Record<string, unknown> {
       type: 1,
       state: "ACTIVE",
       adm: false,
-      game_name: "MockPlayer",
-      tag_line: "NA1",
+      game_name: isSecondAccount ? "MockPlayerTwo" : "MockPlayer",
+      tag_line: isSecondAccount ? "NA2" : "NA1",
       created_at: 1609459200000,
     },
     affinity: { pp: "na" },
@@ -142,6 +159,25 @@ export function getMockWallet(_puuid: string): RiotWallet {
   };
 }
 
+/**
+ * Mock entitlements response from Riot PD
+ * /store/v1/entitlements/{puuid}/{itemTypeId}, consumed by the collection page.
+ * Uses the "Format 2" shape handled by riot-inventory.ts.
+ */
+export function getMockOwnedEntitlements(itemTypeId: string): Record<string, unknown> {
+  if (itemTypeId !== WEAPON_SKIN_ITEM_TYPE) {
+    return { ItemTypeID: itemTypeId, Entitlements: [] };
+  }
+
+  return {
+    ItemTypeID: WEAPON_SKIN_ITEM_TYPE,
+    Entitlements: [
+      { TypeID: WEAPON_SKIN_ITEM_TYPE, ItemID: MOCK_SKIN_LEVEL_UUID_1 },
+      { TypeID: WEAPON_SKIN_ITEM_TYPE, ItemID: MOCK_SKIN_LEVEL_UUID_2 },
+    ],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Valorant-API mock data
 // ---------------------------------------------------------------------------
@@ -173,7 +209,7 @@ export function getMockWeaponSkins(): ValorantAPIResponse<ValorantWeaponSkin[]> 
       ],
       levels: [
         {
-          uuid: "mock-level-uuid-1",
+          uuid: MOCK_SKIN_LEVEL_UUID_1,
           displayName: "Prime Vandal",
           levelItem: null,
           displayIcon: "https://media.valorant-api.com/weaponskinlevels/mock-level-uuid-1/displayicon.png",
@@ -203,7 +239,7 @@ export function getMockWeaponSkins(): ValorantAPIResponse<ValorantWeaponSkin[]> 
       ],
       levels: [
         {
-          uuid: "mock-level-uuid-2",
+          uuid: MOCK_SKIN_LEVEL_UUID_2,
           displayName: "Reaver Omega",
           levelItem: null,
           displayIcon: "https://media.valorant-api.com/weaponskinlevels/mock-level-uuid-2/displayicon.png",
