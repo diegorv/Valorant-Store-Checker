@@ -45,6 +45,13 @@ const WEAPON_SKIN_ITEM_TYPE = "e7c63390-eda7-46e0-bb7a-a6abdacd2433";
 export const MOCK_SKIN_LEVEL_UUID_1 = "mock-level-uuid-1";
 export const MOCK_SKIN_LEVEL_UUID_2 = "mock-level-uuid-2";
 
+/**
+ * A skin in the catalog that the mock player does NOT own: it is never in the
+ * entitlements, so the collection shows it on the "Not owned" side.
+ */
+export const MOCK_UNOWNED_SKIN_UUID = "mock-unowned-skin-uuid";
+export const MOCK_UNOWNED_SKIN_LEVEL_UUID = "mock-unowned-level-uuid";
+
 // ---------------------------------------------------------------------------
 // Auth mock data
 // ---------------------------------------------------------------------------
@@ -245,6 +252,36 @@ export function getMockWeaponSkins(): ValorantAPIResponse<ValorantWeaponSkin[]> 
           displayIcon: "https://media.valorant-api.com/weaponskinlevels/mock-level-uuid-2/displayicon.png",
           streamedVideo: null,
           assetPath: "SkinsGameData/WeaponSkinData/ReaverOmega/ReaverOmega_Level1.asset",
+        },
+      ],
+    },
+    {
+      uuid: MOCK_UNOWNED_SKIN_UUID,
+      displayName: "Oni Phantom",
+      themeUuid: "d1b3c5e7-9a2f-4c6b-8e1d-3f5a7b9c1d2e",
+      contentTierUuid: "0cebb8be-46d7-c12a-16b1-9f05bf91a318",
+      displayIcon: "https://media.valorant-api.com/weaponskinchromas/mock-unowned-chroma-uuid/displayicon.png",
+      wallpaper: null,
+      assetPath: "SkinsGameData/WeaponSkinData/OniPhantom/OniPhantom.asset",
+      chromas: [
+        {
+          uuid: "mock-unowned-chroma-uuid",
+          displayName: "Oni Phantom",
+          displayIcon: "https://media.valorant-api.com/weaponskinchromas/mock-unowned-chroma-uuid/displayicon.png",
+          fullRender: "https://media.valorant-api.com/weaponskinchromas/mock-unowned-chroma-uuid/fullrender.png",
+          swatch: null,
+          streamedVideo: null,
+          assetPath: "SkinsGameData/WeaponSkinData/OniPhantom/OniPhantom_Chroma1.asset",
+        },
+      ],
+      levels: [
+        {
+          uuid: MOCK_UNOWNED_SKIN_LEVEL_UUID,
+          displayName: "Oni Phantom",
+          levelItem: null,
+          displayIcon: "https://media.valorant-api.com/weaponskinlevels/mock-unowned-level-uuid/displayicon.png",
+          streamedVideo: null,
+          assetPath: "SkinsGameData/WeaponSkinData/OniPhantom/OniPhantom_Level1.asset",
         },
       ],
     },
