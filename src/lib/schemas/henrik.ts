@@ -23,25 +23,41 @@ const HenrikMMRTierSchema = z.object({
   name: z.string(),
 });
 
+const HenrikSeasonRefSchema = z.object({
+  id: z.string(),
+  short: z.string(),
+});
+
 const HenrikMMRCurrentSchema = z.object({
   tier: HenrikMMRTierSchema,
   rr: z.number(),
   last_change: z.number(),
   elo: z.number(),
   games_needed_for_rating: z.number(),
+  // Immortal+ only; null for everyone else
+  leaderboard_placement: z.object({ rank: z.number() }).nullable().optional(),
 });
 
 const HenrikMMRPeakSchema = z.object({
-  season: z
-    .object({
-      id: z.string(),
-      short: z.string(),
-    })
-    .optional(),
+  season: HenrikSeasonRefSchema.optional(),
   tier: HenrikMMRTierSchema.optional(),
+  rr: z.number().optional(),
+});
+
+/**
+ * One act of competitive history. Parsed entry by entry (see henrik-api.ts)
+ * so one odd act cannot take the whole MMR response down with it.
+ */
+export const HenrikSeasonalSchema = z.object({
+  season: HenrikSeasonRefSchema,
+  wins: z.number(),
+  games: z.number(),
+  end_tier: HenrikMMRTierSchema.nullable().optional(),
+  end_rr: z.number().nullable().optional(),
 });
 
 export const HenrikMMRSchema = z.object({
   current: HenrikMMRCurrentSchema.optional(),
   peak: HenrikMMRPeakSchema.optional(),
+  seasonal: z.array(HenrikSeasonalSchema).optional(),
 });

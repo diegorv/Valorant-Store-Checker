@@ -99,7 +99,7 @@ function makeMockAccount(overrides: Partial<{ name: string; tag: string; account
   };
 }
 
-function makeMockMMR(overrides: Partial<{ current: object; peak: object }> = {}) {
+function makeMockMMR(overrides: Partial<{ current: object; peak: object; seasonal: object[] }> = {}) {
   return {
     current: {
       tier: { id: 10, name: "Gold 1" },
@@ -353,5 +353,58 @@ describe("clearProfileCache", () => {
     expect(mockRedisDel).toHaveBeenCalledWith("profile:puuid1");
     expect(mockRedisDel).toHaveBeenCalledWith("profile:puuid2");
     expect(mockRedisDel).toHaveBeenCalledWith("profile:puuid3");
+  });
+});
+
+
+describe("getProfileData — competitive extras from Henrik MMR", () => {
+  beforeEach(() => {
+    mockRedisGet.mockResolvedValue(null);
+    mockGetPlayerLoadout.mockResolvedValue(makeMockLoadout());
+    mockGetHenrikAccount.mockResolvedValue(makeMockAccount());
+    mockGetPlayerCardByUuid.mockResolvedValue({ smallArt: "", wideArt: "", largeArt: "" });
+    mockGetPlayerTitleByUuid.mockResolvedValue({ titleText: "Test Title" });
+    mockGetCompetitiveTierIconByTier.mockResolvedValue("https://ranked.icon");
+  });
+
+  it("maps peak act, placement games, leaderboard rank and the act history (newest first, empty acts dropped)", async () => {
+    mockGetHenrikMMR.mockResolvedValue(
+      makeMockMMR({
+        current: {
+          tier: { id: 10, name: "Gold 1" },
+          rr: 55,
+          last_change: 12,
+          games_needed_for_rating: 0,
+          leaderboard_placement: { rank: 9001 },
+        },
+        peak: { tier: { id: 12, name: "Platinum 1" }, season: { id: "e7a2", short: "e7a2" } },
+        seasonal: [
+          { season: { id: "e7a2", short: "e7a2" }, wins: 20, games: 40, end_tier: { id: 12, name: "Platinum 1" }, end_rr: 30 },
+          { season: { id: "e6a3", short: "e6a3" }, wins: 0, games: 0, end_tier: null, end_rr: null },
+          { season: { id: "e8a1", short: "e8a1" }, wins: 5, games: 12, end_tier: { id: 10, name: "Gold 1" }, end_rr: 55 },
+        ],
+      }),
+    );
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(result.mmrChangeToLastGame).toBe(12);
+    expect(result.peakSeason).toBe("e7a2");
+    expect(result.gamesNeededForRating).toBe(0);
+    expect(result.leaderboardRank).toBe(9001);
+    expect(result.actHistory).toEqual([
+      { season: "e8a1", wins: 5, games: 12, endTier: 10, endTierName: "Gold 1", endRR: 55 },
+      { season: "e7a2", wins: 20, games: 40, endTier: 12, endTierName: "Platinum 1", endRR: 30 },
+    ]);
+  });
+
+  it("leaves the extras undefined when Henrik returns no seasonal data", async () => {
+    mockGetHenrikMMR.mockResolvedValue(makeMockMMR());
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(result.actHistory).toBeUndefined();
+    expect(result.peakSeason).toBeUndefined();
+    expect(result.leaderboardRank).toBeUndefined();
   });
 });

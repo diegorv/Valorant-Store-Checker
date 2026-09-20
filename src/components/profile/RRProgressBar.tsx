@@ -1,19 +1,32 @@
 interface RRProgressBarProps {
   rankingInTier?: number;
+  /** RR won or lost in the most recent competitive game (Henrik `current.last_change`) */
+  lastChange?: number;
 }
 
-export function RRProgressBar({ rankingInTier }: RRProgressBarProps) {
+export function RRProgressBar({ rankingInTier, lastChange }: RRProgressBarProps) {
   if (rankingInTier === undefined) {
     return null;
   }
 
   const clampedRR = Math.max(0, Math.min(100, rankingInTier));
+  const hasChange = lastChange !== undefined && lastChange !== 0;
 
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between items-center">
         <span className="text-xs uppercase tracking-wider text-zinc-400">RR Progress</span>
-        <span className="font-display text-sm text-zinc-300">{clampedRR} / 100</span>
+        <span className="flex items-baseline gap-2">
+          {hasChange && (
+            <span
+              className={`font-display text-xs tracking-wider ${lastChange > 0 ? "text-emerald-400" : "text-red-400"}`}
+              aria-label={`${lastChange > 0 ? "gained" : "lost"} ${Math.abs(lastChange)} RR in the last game`}
+            >
+              {lastChange > 0 ? "+" : "−"}{Math.abs(lastChange)} last game
+            </span>
+          )}
+          <span className="font-display text-sm text-zinc-300">{clampedRR} / 100</span>
+        </span>
       </div>
       <div
         className="w-full h-1.5 bg-void-surface angular-card-sm overflow-hidden"
