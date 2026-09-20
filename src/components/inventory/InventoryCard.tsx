@@ -2,14 +2,17 @@
 
 import { memo, useRef, useState } from "react";
 import Image from "next/image";
-import type { OwnedSkin } from "@/types/inventory";
+import { Check, Lock } from "lucide-react";
+import type { CollectionSkin } from "@/types/inventory";
 import { getEditionIconPath } from "@/lib/edition-icons";
 
 interface InventoryCardProps {
-  skin: OwnedSkin;
+  skin: CollectionSkin;
+  /** Label owned skins too — for views that mix owned and not owned */
+  showOwnedBadge?: boolean;
 }
 
-export const InventoryCard = memo(function InventoryCard({ skin }: InventoryCardProps) {
+export const InventoryCard = memo(function InventoryCard({ skin, showOwnedBadge = false }: InventoryCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -33,7 +36,8 @@ export const InventoryCard = memo(function InventoryCard({ skin }: InventoryCard
   return (
     <div
       role="article"
-      aria-label={`${skin.displayName}${skin.tierName ? `, ${skin.tierName} tier` : ''}, ${skin.weaponName}`}
+      aria-label={`${skin.displayName}${skin.tierName ? `, ${skin.tierName} tier` : ''}, ${skin.weaponName}${skin.owned ? "" : ", not owned"}`}
+      data-owned={skin.owned}
     >
       {/* Glow border wrapper */}
       <div
@@ -41,7 +45,7 @@ export const InventoryCard = memo(function InventoryCard({ skin }: InventoryCard
         style={{ "--glow-color": skin.tierColor } as React.CSSProperties}
       >
         <div
-          className="group relative overflow-hidden angular-card bg-void-deep"
+          className={`group relative overflow-hidden angular-card bg-void-deep ${skin.owned ? "" : "opacity-60 hover:opacity-100 transition-opacity"}`}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
@@ -60,6 +64,20 @@ export const InventoryCard = memo(function InventoryCard({ skin }: InventoryCard
               {/* Vignette overlay */}
               <div className="absolute inset-0 z-10 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(10,17,24,0.6)_100%)]" />
 
+              {/* Ownership badge */}
+              {!skin.owned && (
+                <span className="absolute top-2 left-2 z-20 inline-flex items-center gap-1 px-2 py-1 text-[10px] font-display font-bold uppercase tracking-wider bg-void-deep/90 border border-white/15 text-zinc-300 angular-card-sm">
+                  <Lock className="h-3 w-3" aria-hidden="true" />
+                  Not owned
+                </span>
+              )}
+              {skin.owned && showOwnedBadge && (
+                <span className="absolute top-2 left-2 z-20 inline-flex items-center gap-1 px-2 py-1 text-[10px] font-display font-bold uppercase tracking-wider bg-brand text-void-deep angular-card-sm">
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                  Owned
+                </span>
+              )}
+
               {skin.displayIcon && (
                 <Image
                   src={skin.displayIcon}
@@ -69,7 +87,7 @@ export const InventoryCard = memo(function InventoryCard({ skin }: InventoryCard
                   blurDataURL={skin.blurDataURL}
                   className={`object-contain p-3 transition-all duration-300 ${
                     isHovered && skin.streamedVideo ? "opacity-0" : "opacity-100 group-hover:scale-105"
-                  }`}
+                  } ${skin.owned ? "" : "grayscale group-hover:grayscale-0"}`}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                 />
               )}

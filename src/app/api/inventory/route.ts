@@ -3,6 +3,12 @@
  *
  * Protected endpoint that returns the user's owned weapon skins collection.
  * Fetches entitlements from Riot PD API and hydrates with Valorant-API data.
+ *
+ * Query parameters:
+ * - `refresh=true`  drop the caches and fetch from Riot again
+ * - `catalog=true`  also return the skins the user does NOT own
+ *   (`unownedSkins`, roughly the whole catalog) — the collection page asks
+ *   for it, callers that only need the owned set (wishlist) do not pay for it
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,6 +16,12 @@ import { withSession } from "@/lib/api-validate";
 import { getOwnedSkins, clearInventoryCache } from "@/lib/riot-inventory";
 import { getCachedInventory, clearCachedInventory } from "@/lib/inventory-cache";
 import { createLogger } from "@/lib/logger";
+import type { InventoryData } from "@/types/inventory";
+
+/** Strips the catalog side unless the caller asked for it. */
+function shapeResponse(data: InventoryData, includeCatalog: boolean): InventoryData {
+  return includeCatalog ? data : { ...data, unownedSkins: [] };
+}
 
 export const GET = withSession(async (request: NextRequest, session, reqId?: string) => {
   const log = createLogger("Inventory API", reqId);
@@ -23,13 +35,14 @@ export const GET = withSession(async (request: NextRequest, session, reqId?: str
       // only changes *your entitlements*, not the global skin definitions list.
       log.info(`Inventory caches cleared for PUUID: ${session.puuid.substring(0, 8)} (manual refresh)`);
     }
+    const includeCatalog = request.nextUrl.searchParams.get("catalog") === "true";
 
     // Fetch owned skins
     try {
       const inventoryData = await getOwnedSkins(session);
 
       return NextResponse.json(
-        { ...inventoryData, fromCache: false },
+        { ...shapeResponse(inventoryData, includeCatalog), fromCache: false },
         {
           headers: {
             "Cache-Control": "private, max-age=60, stale-while-revalidate=240",
@@ -44,7 +57,7 @@ export const GET = withSession(async (request: NextRequest, session, reqId?: str
       if (cached) {
         log.info("Serving cached inventory data");
         return NextResponse.json(
-          { ...cached, fromCache: true },
+          { ...shapeResponse(cached, includeCatalog), fromCache: true },
           {
             headers: {
               "Cache-Control": "private, max-age=60, stale-while-revalidate=240",

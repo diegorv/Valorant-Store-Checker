@@ -10,6 +10,7 @@ function makeSkin(overrides: Partial<OwnedSkin> = {}): OwnedSkin {
   return {
     uuid: "test-uuid-001",
     displayName: "Prime Vandal",
+    owned: true,
     displayIcon: "https://media.valorant-api.com/weaponskinlevels/prime-vandal.png",
     streamedVideo: null,
     wallpaper: null,
