@@ -81,8 +81,8 @@ function AccountSection({ group, onDelete, defaultExpanded = true }: AccountSect
       >
         <div className="flex items-center gap-3">
           {/* Avatar icon */}
-          <div className="w-9 h-9 rounded-full bg-valorant-red/15 border border-valorant-red/30 flex items-center justify-center flex-shrink-0">
-            <User size={16} className="text-valorant-red" />
+          <div className="w-9 h-9 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center flex-shrink-0">
+            <User size={16} className="text-brand" />
           </div>
 
           <div className="text-left">
@@ -218,7 +218,7 @@ export default function HistoryPage() {
             </p>
             <Link
               href="/store"
-              className="inline-block px-6 py-3 bg-valorant-red hover:bg-valorant-red/80 text-light font-medium uppercase tracking-wide transition-colors duration-200 angular-btn"
+              className="inline-block px-6 py-3 bg-brand hover:bg-brand/80 text-void-deep font-medium uppercase tracking-wide transition-colors duration-200 angular-btn"
             >
               Go to Store
             </Link>
@@ -236,7 +236,7 @@ export default function HistoryPage() {
         <div className="flex items-end gap-4 mb-8">
           <h1 className="font-display text-5xl uppercase text-light">Store History</h1>
           {accountGroups.length > 1 && (
-            <span className="mb-1.5 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider bg-valorant-red/15 text-valorant-red border border-valorant-red/30 rounded">
+            <span className="mb-1.5 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider bg-brand/15 text-brand border border-brand/30 rounded">
               {accountGroups.length} accounts
             </span>
           )}

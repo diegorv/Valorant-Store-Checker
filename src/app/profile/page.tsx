@@ -131,7 +131,7 @@ export default function ProfilePage() {
         {/* Error State */}
         {state === "error" && (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <div className="text-valorant-red">
+            <div className="text-brand">
               <svg
                 className="h-16 w-16"
                 fill="none"
@@ -151,7 +151,7 @@ export default function ProfilePage() {
             </p>
             <button
               onClick={retryFetch}
-              className="px-6 py-3 bg-valorant-red hover:bg-valorant-red/90 text-white font-semibold uppercase tracking-wide angular-card transition-all"
+              className="px-6 py-3 bg-brand hover:bg-brand/90 text-void-deep font-semibold uppercase tracking-wide angular-card transition-all"
             >
               Retry
             </button>

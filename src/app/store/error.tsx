@@ -60,14 +60,14 @@ export default function StoreError({
             {isAuthError ? (
               <a
                 href="/login"
-                className="angular-btn px-6 py-3 bg-valorant-red text-white font-display uppercase tracking-wider text-sm hover:bg-red-600 transition-colors"
+                className="angular-btn px-6 py-3 bg-brand text-void-deep font-display uppercase tracking-wider text-sm hover:bg-brand/85 transition-colors"
               >
                 Go to Login
               </a>
             ) : (
               <button
                 onClick={reset}
-                className="angular-btn px-6 py-3 bg-valorant-red text-white font-display uppercase tracking-wider text-sm hover:bg-red-600 transition-colors"
+                className="angular-btn px-6 py-3 bg-brand text-void-deep font-display uppercase tracking-wider text-sm hover:bg-brand/85 transition-colors"
               >
                 Retry
               </button>

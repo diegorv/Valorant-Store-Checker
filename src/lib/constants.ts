@@ -31,3 +31,9 @@ export const CURRENCY_IDS = {
 } as const;
 
 export type CurrencyType = keyof typeof CURRENCY_IDS;
+
+// ---------------------------------------------------------------------------
+// Project links
+// ---------------------------------------------------------------------------
+
+export const GITHUB_REPO_URL = "https://github.com/diegorv/Valorant-Store-Checker";

@@ -152,7 +152,7 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center px-4 py-3 text-lg font-medium rounded-lg transition-all ${
                     pathname === link.href
-                      ? "text-white bg-void-surface/50 border-l-2 border-valorant-red"
+                      ? "text-white bg-void-surface/50 border-l-2 border-brand"
                       : "text-zinc-300 hover:text-white hover:bg-void-surface/50"
                   }`}
                 >
@@ -185,7 +185,7 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
                 <Link
                   href="/login"
                   onClick={() => setIsOpen(false)}
-                  className="flex items-center justify-center px-4 py-3 bg-valorant-red text-white font-display uppercase tracking-wider angular-btn hover:bg-valorant-red/90 transition-colors"
+                  className="flex items-center justify-center px-4 py-3 bg-brand text-void-deep font-display uppercase tracking-wider angular-btn hover:bg-brand/90 transition-colors"
                 >
                   Login with Riot
                 </Link>

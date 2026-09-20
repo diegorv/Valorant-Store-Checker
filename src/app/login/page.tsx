@@ -34,7 +34,7 @@ export default async function LoginPage({
     <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden">
       {/* Animated scan line */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-valorant-red/20 to-transparent animate-scanline" />
+        <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-brand/20 to-transparent animate-scanline" />
       </div>
 
       {/* Diagonal grid overlay */}
@@ -52,8 +52,8 @@ export default async function LoginPage({
       />
 
       {/* Dramatic red orbs */}
-      <div className="absolute top-1/3 -left-40 w-96 h-96 bg-valorant-red/8 rounded-full blur-3xl animate-subtle-float" />
-      <div className="absolute bottom-1/3 -right-40 w-96 h-96 bg-valorant-red/6 rounded-full blur-3xl animate-subtle-float" style={{ animationDelay: "3s" }} />
+      <div className="absolute top-1/3 -left-40 w-96 h-96 bg-brand/8 rounded-full blur-3xl animate-subtle-float" />
+      <div className="absolute bottom-1/3 -right-40 w-96 h-96 bg-brand/6 rounded-full blur-3xl animate-subtle-float" style={{ animationDelay: "3s" }} />
 
       {/* Login Form Container */}
       <div

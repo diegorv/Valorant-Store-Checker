@@ -21,7 +21,7 @@ import type { OwnedSkin } from "@/types/inventory";
 const COLORS = {
   void: "#0f1923",
   voidDeep: "#0a1118",
-  valorantRed: "#ff4655",
+  brand: "#bd93f9",
   light: "#ece8e1",
   zinc400: "#a1a1aa",
   zinc500: "#71717a",
@@ -145,12 +145,12 @@ function buildPdfPageHtml(
 
   const headerHtml = `
     <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:30px;
-         border-bottom:2px solid ${COLORS.valorantRed}; padding-bottom:16px;">
+         border-bottom:2px solid ${COLORS.brand}; padding-bottom:16px;">
       <div style="display:flex; flex-direction:column; align-items:flex-start; gap:16px;">
         <img src="${logoUrl}" alt="Logo" crossorigin="anonymous" style="width:200px; height:auto; object-fit:contain;" />
         <div style="display:flex; align-items:center; gap:16px;">
           <h1 style="margin:0; font-size:32px; text-transform:uppercase; letter-spacing:0.1em; line-height:1;">
-            <span style="color:${COLORS.valorantRed};">VALORANT</span> COLLECTION
+            <span style="color:${COLORS.brand};">VALORANT</span> COLLECTION
           </h1>
           ${playerLine}
         </div>
@@ -158,7 +158,7 @@ function buildPdfPageHtml(
       <div style="text-align:right;">
         <span style="color:${COLORS.zinc400}; font-size:13px;">${date}</span>
         <br/>
-        <span style="color:${COLORS.valorantRed}; font-size:20px; font-weight:700;">
+        <span style="color:${COLORS.brand}; font-size:20px; font-weight:700;">
           ${totalSkinsCount} ${totalSkinsCount === 1 ? "Skin" : "Skins"}
         </span>
       </div>

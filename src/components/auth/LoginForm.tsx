@@ -57,13 +57,13 @@ export function LoginForm() {
         <form onSubmit={handleAuth} className="space-y-6">
           <div className="space-y-4">
             {/* Steps */}
-            <div className="p-4 bg-void-deep border-l-2 border-valorant-red/30 text-sm text-zinc-300 rounded-sm">
+            <div className="p-4 bg-void-deep border-l-2 border-brand/30 text-sm text-zinc-300 rounded-sm">
               <p className="mb-3">
                 1. Click{" "}
                 <button
                   type="button"
                   onClick={handleLaunchBrowser}
-                  className="text-valorant-red hover:text-valorant-red/80 hover:underline font-bold transition-colors"
+                  className="text-brand hover:text-brand/80 hover:underline font-bold transition-colors"
                 >
                   Launch Riot Login
                 </button>{" "}
@@ -90,12 +90,12 @@ export function LoginForm() {
                 spellCheck={false}
                 required
                 disabled={isPending}
-                className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all font-mono text-sm"
+                className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed transition-all font-mono text-sm"
               />
             </div>
             <div className="pt-4 border-t border-white/5">
               <details className="group text-sm text-zinc-400">
-                <summary className="cursor-pointer font-medium hover:text-valorant-red transition-colors list-none flex items-center gap-2">
+                <summary className="cursor-pointer font-medium hover:text-brand transition-colors list-none flex items-center gap-2">
                   <span className="text-xs">▶</span> How to get your full cookie string?
                 </summary>
                 <div className="mt-3 pl-4 space-y-2 text-zinc-500 border-l border-white/10">

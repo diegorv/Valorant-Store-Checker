@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Teko, Outfit } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 
 // Per-page dynamic rendering is used instead of app-wide force-dynamic.
 // Pages that need session data (store, profile, inventory, accounts) use
@@ -42,13 +43,14 @@ export default function RootLayout({
         {/* Skip-to-content link for keyboard/screen reader users */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-valorant-red focus:text-white focus:font-display focus:uppercase focus:tracking-wider focus:angular-card-sm"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand focus:text-void-deep focus:font-display focus:uppercase focus:tracking-wider focus:angular-card-sm"
         >
           Skip to content
         </a>
 
         <Header />
         <main id="main-content" className="relative z-10 flex-1">{children}</main>
+        <Footer />
       </body>
     </html>
   );

@@ -1,7 +1,9 @@
 services:
   app:
-    build: .
-    image: valorant-store-checker:local
+    # Prebuilt multi-arch image published from `main` (see HOSTING.md).
+    # Pin a build with APP_IMAGE in .env; to build from this checkout instead,
+    # add docker-compose.build.yml (see that file).
+    image: ${APP_IMAGE:-ghcr.io/diegorv/valorant-store-checker:latest}
     container_name: valorant-store-checker
     restart: unless-stopped
     depends_on:

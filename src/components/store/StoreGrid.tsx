@@ -38,7 +38,7 @@ export function StoreGrid({
         <span className="font-display text-sm uppercase tracking-[0.2em] text-zinc-400">
           Featured Offers
         </span>
-        <div className="flex-1 h-[1px] bg-gradient-to-r from-valorant-red/40 to-transparent" />
+        <div className="flex-1 h-[1px] bg-gradient-to-r from-brand/40 to-transparent" />
       </div>
 
       {/* Grid container */}

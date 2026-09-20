@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-valorant-red: #ff4655;
+  --color-brand: #bd93f9; /* Dracula purple */
   --color-void: #0f1923;
   --color-void-deep: #0a1118;
   --color-void-surface: #162230;
@@ -10,7 +10,7 @@
   --color-background: var(--color-void);
   --color-foreground: var(--color-light);
 
-  --color-glow-red: rgba(255, 70, 85, 0.6);
+  --color-glow-brand: rgba(189, 147, 249, 0.6);
   --color-glow-purple: rgba(168, 85, 247, 0.6);
   --color-glow-gold: rgba(234, 179, 8, 0.6);
 
@@ -162,7 +162,7 @@ body {
 
 /* Animated conic-gradient glow border */
 .glow-border {
-  --glow-color: var(--color-valorant-red);
+  --glow-color: var(--color-brand);
   position: relative;
   background: conic-gradient(
     from var(--border-angle),

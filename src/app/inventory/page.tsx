@@ -65,8 +65,8 @@ export default function InventoryPage() {
             
             <div className="flex items-center gap-3">
               {inventoryData && (
-                <div className="px-4 py-2 bg-valorant-red/20 border border-valorant-red angular-card-sm">
-                  <span className="text-valorant-red font-bold text-lg">
+                <div className="px-4 py-2 bg-brand/20 border border-brand angular-card-sm">
+                  <span className="text-brand font-bold text-lg">
                     {inventoryData.totalCount} Skins
                   </span>
                 </div>
@@ -74,7 +74,7 @@ export default function InventoryPage() {
               {state !== "loading" && (
                 <button
                   onClick={() => fetchInventory(true)}
-                  className="px-4 py-2 bg-void-deep border border-white/10 angular-card-sm text-zinc-400 hover:border-valorant-red/50 hover:text-light transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-void-deep border border-white/10 angular-card-sm text-zinc-400 hover:border-brand/50 hover:text-light transition-all flex items-center gap-2"
                   title="Refresh collection"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@ export default function InventoryPage() {
         {state === "loading" && (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-valorant-red/20 border-t-valorant-red rounded-full animate-spin" />
+              <div className="w-16 h-16 border-4 border-brand/20 border-t-brand rounded-full animate-spin" />
             </div>
             <p className="text-zinc-400 text-lg">Loading your collection...</p>
           </div>
@@ -100,7 +100,7 @@ export default function InventoryPage() {
         {/* Error State */}
         {state === "error" && (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <div className="text-valorant-red">
+            <div className="text-brand">
               <svg
                 className="h-16 w-16"
                 fill="none"
@@ -120,7 +120,7 @@ export default function InventoryPage() {
             </p>
             <button
               onClick={() => fetchInventory()}
-              className="px-6 py-3 bg-valorant-red hover:bg-valorant-red/90 text-white font-semibold uppercase tracking-wide angular-card transition-all"
+              className="px-6 py-3 bg-brand hover:bg-brand/90 text-void-deep font-semibold uppercase tracking-wide angular-card transition-all"
             >
               Retry
             </button>

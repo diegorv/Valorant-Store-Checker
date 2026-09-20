@@ -24,7 +24,7 @@ export async function NightMarketSection({ session, storeData }: NightMarketSect
 
   return (
     <>
-      <div className="h-[1px] bg-gradient-to-r from-valorant-red/50 via-white/10 to-transparent mb-8" />
+      <div className="h-[1px] bg-gradient-to-r from-brand/50 via-white/10 to-transparent mb-8" />
       <NightMarketClient nightMarket={nightMarket} initialWishlistedUuids={wishlistedUuids} />
     </>
   );
