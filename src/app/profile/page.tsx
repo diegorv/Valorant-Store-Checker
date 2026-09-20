@@ -7,6 +7,8 @@ import { AccountLevelBadge } from "@/components/profile/AccountLevelBadge";
 import { RankDisplay } from "@/components/profile/RankDisplay";
 import { RRProgressBar } from "@/components/profile/RRProgressBar";
 import { ActHistory } from "@/components/profile/ActHistory";
+import { MatchStatsSummary } from "@/components/profile/MatchStatsSummary";
+import { RecentMatches } from "@/components/profile/RecentMatches";
 import { AlertCircle, Clock } from "lucide-react";
 import type { ProfilePageData } from "@/types/profile";
 
@@ -263,6 +265,22 @@ export default function ProfilePage() {
               style={{ "--stagger-delay": "500ms" } as React.CSSProperties}
             >
               <ActHistory acts={profileData.actHistory} />
+            </div>
+
+            {/* Section 6: Recent competitive stats */}
+            <div
+              className="stagger-entrance px-1"
+              style={{ "--stagger-delay": "600ms" } as React.CSSProperties}
+            >
+              <MatchStatsSummary stats={profileData.matchStats} />
+            </div>
+
+            {/* Section 7: Recent matches */}
+            <div
+              className="stagger-entrance px-1"
+              style={{ "--stagger-delay": "700ms" } as React.CSSProperties}
+            >
+              <RecentMatches matches={profileData.recentMatches} />
             </div>
 
             {/* Last updated / next update — profile data is cached server-side */}
