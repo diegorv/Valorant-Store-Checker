@@ -143,14 +143,14 @@ src/
 │   ├── login/                # Sign-in form
 │   ├── store/                # Daily store, Night Market, bundles (protected)
 │   ├── profile/              # Rank, level, identity (protected)
-│   ├── inventory/            # Owned cosmetics + PDF export (protected)
+│   ├── inventory/            # Owned weapon skins + PDF export (protected)
 │   ├── history/              # Store rotation history (client-side, IndexedDB)
 │   ├── wishlist/             # Wishlist page
 │   ├── encyclopedia/         # All weapon skins, filterable (public, revalidated hourly)
 │   └── api/
 │       ├── auth/             # Riot auth dispatcher (url, cookie, credentials, MFA) + logout
 │       ├── profile/          # Identity + rank
-│       ├── inventory/        # Cosmetics
+│       ├── inventory/        # Owned weapon skins
 │       ├── wishlist/         # Bookmark management
 │       └── accounts/         # Multi-account list + switch
 ├── components/
@@ -183,7 +183,7 @@ src/
     ├── riot-tokens.ts        # Token + entitlements extraction
     ├── riot-store.ts         # Storefront API + shard selection
     ├── riot-loadout.ts       # Player loadout (card, title, level)
-    ├── riot-inventory.ts     # Owned cosmetics
+    ├── riot-inventory.ts     # Owned weapon skins
     ├── store-service.ts      # Store page orchestration (storefront + catalog)
     ├── store-cache.ts        # Store cache (Redis, until the next rotation)
     ├── store-history.ts      # Store rotation history (Dexie / IndexedDB)
