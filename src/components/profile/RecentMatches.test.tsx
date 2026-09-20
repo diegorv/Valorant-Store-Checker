@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import { RecentMatches, formatRelative } from "./RecentMatches";
+import { RecentMatches, formatRelative, formatRelativeCompact } from "./RecentMatches";
 import { MatchStatsSummary } from "./MatchStatsSummary";
 import type { RecentMatch, MatchStats } from "@/lib/match-stats";
 
@@ -36,6 +36,17 @@ describe("formatRelative", () => {
     expect(formatRelative("2026-09-20T09:00:00Z", now)).toBe("3 hours ago");
     expect(formatRelative("2026-09-17T12:00:00Z", now)).toBe("3 days ago");
     expect(formatRelative("not a date", now)).toBe("");
+  });
+});
+
+describe("formatRelativeCompact", () => {
+  const now = Date.parse("2026-09-20T12:00:00Z");
+  it("is one number and one letter", () => {
+    expect(formatRelativeCompact("2026-09-20T11:59:40Z", now)).toBe("now");
+    expect(formatRelativeCompact("2026-09-20T11:30:00Z", now)).toBe("30m");
+    expect(formatRelativeCompact("2026-09-20T09:00:00Z", now)).toBe("3h");
+    expect(formatRelativeCompact("2026-09-13T12:00:00Z", now)).toBe("7d");
+    expect(formatRelativeCompact("not a date", now)).toBe("");
   });
 });
 

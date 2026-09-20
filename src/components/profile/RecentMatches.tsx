@@ -36,6 +36,18 @@ export function formatRelative(iso: string, now: number = Date.now()): string {
   }
 }
 
+/** "7d", "3h", "12m", "now" — for the narrow layout, where the full form gets cut off. */
+export function formatRelativeCompact(iso: string, now: number = Date.now()): string {
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return "";
+  const abs = Math.abs(now - then);
+  const minute = 60_000, hour = 60 * minute, day = 24 * hour;
+  if (abs < minute) return "now";
+  if (abs < hour) return `${Math.round(abs / minute)}m`;
+  if (abs < day) return `${Math.round(abs / hour)}h`;
+  return `${Math.round(abs / day)}d`;
+}
+
 /** The last competitive matches, newest first. */
 export function RecentMatches({ matches }: RecentMatchesProps) {
   if (!matches || matches.length === 0) return null;
@@ -67,8 +79,14 @@ export function RecentMatches({ matches }: RecentMatchesProps) {
                     {m.roundsWon}–{m.roundsLost}
                   </span>
                 </div>
-                <div className="text-xs text-zinc-500 truncate">
-                  {m.map} · {m.agent} · <time dateTime={m.startedAt}>{formatRelative(m.startedAt)}</time>
+                <div className="flex items-baseline gap-1 text-xs text-zinc-500">
+                  <span className="truncate">{m.map} · {m.agent}</span>
+                  <span aria-hidden="true">·</span>
+                  {/* Short on phones so the time never gets cut off; full form from sm up */}
+                  <time dateTime={m.startedAt} title={new Date(m.startedAt).toLocaleString()} className="shrink-0">
+                    <span className="sm:hidden">{formatRelativeCompact(m.startedAt)}</span>
+                    <span className="hidden sm:inline">{formatRelative(m.startedAt)}</span>
+                  </time>
                 </div>
               </div>
 
