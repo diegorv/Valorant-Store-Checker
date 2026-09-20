@@ -297,6 +297,23 @@ async function revokeCurrentSession(): Promise<void> {
 }
 
 /**
+ * Internal: drops a session the refresh path has found dead.
+ *
+ * Deletes the store row AND evicts the current token from the LRU. Without
+ * the eviction the next request (for up to the LRU TTL) is still served the
+ * deleted row from cache: /store sees "dead, go to /login", /login sees
+ * "cached session, go to /store", and the browser gives up with
+ * ERR_TOO_MANY_REDIRECTS. Reads the cookie itself because the cached result
+ * only carries the sessionId, not the token the LRU is keyed by.
+ */
+async function dropDeadSession(sessionId: string): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (token) _sessionCache.invalidate(token);
+  await deleteSessionFromStore(sessionId);
+}
+
+/**
  * Deletes session from store AND cookie.
  * ONLY safe to call from Route Handlers or Server Actions.
  */
@@ -359,7 +376,7 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
   if (!session.riotCookies) {
     log.warn("No stored Riot cookies for token refresh");
     if (isTokenDefinitelyDead) {
-      await deleteSessionFromStore(sessionId);
+      await dropDeadSession(sessionId);
       return null;
     }
     return { ...session, _refreshFailed: true };
@@ -371,7 +388,7 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
     if (!refreshResult.success) {
       log.warn("Token refresh failed: %s", refreshResult.error);
       if (isTokenDefinitelyDead) {
-        await deleteSessionFromStore(sessionId);
+        await dropDeadSession(sessionId);
         return null;
       }
       return { ...session, _refreshFailed: true };
@@ -404,7 +421,7 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
   } catch (error) {
     log.error("Token refresh error:", error);
     if (isTokenDefinitelyDead) {
-      await deleteSessionFromStore(sessionId);
+      await dropDeadSession(sessionId);
       return null;
     }
     return { ...session, _refreshFailed: true };

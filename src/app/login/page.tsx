@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { getSessionWithRefresh } from "@/lib/session";
 import { LoginFormLoader } from "@/components/auth/LoginFormLoader";
 
 export const metadata = {
@@ -14,11 +14,19 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
 
-  // If user has a valid session (cookie + store), redirect to /store
-  // Skip this check for multi-account flow
+  // Redirect to /store only when the session is one /store will accept.
+  //
+  // /store decides the opposite direction with getSessionWithRefresh(), so
+  // this page must use the same predicate: if the two ever disagree the
+  // browser bounces between them until it fails with "too many redirects".
+  // A session whose Riot refresh failed stays on the login form so the user
+  // can re-authenticate instead of being sent to a store that cannot load.
+  //
+  // Skipped for the multi-account flow, which adds an account on top of a
+  // valid session.
   if (!params.addAccount) {
-    const session = await getSession();
-    if (session) {
+    const session = await getSessionWithRefresh();
+    if (session && !session._refreshFailed) {
       redirect("/store");
     }
   }
