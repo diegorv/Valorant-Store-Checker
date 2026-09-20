@@ -98,10 +98,21 @@ function toActHistory(seasonal: HenrikMMRData["seasonal"]): ActRecord[] | undefi
 interface ProfileCacheEntry {
   data: ProfileData;
   cachedAt: number;
+  /** Shape of `data`; entries written by an older build are treated as a miss */
+  version?: number;
 }
 
 const PROFILE_KEY_PREFIX = "profile:";
 const PROFILE_CACHE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
+
+/**
+ * Bump whenever ProfileData gains fields the UI needs. Cached entries live for
+ * 6 hours across deploys, so without this a new field stays invisible until
+ * every user's entry has expired.
+ *   1: original shape
+ *   2: peakSeason, gamesNeededForRating, leaderboardRank, actHistory
+ */
+export const PROFILE_CACHE_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -138,7 +149,10 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     try {
       const entry: ProfileCacheEntry = JSON.parse(cached) as ProfileCacheEntry;
       const age = Date.now() - entry.cachedAt;
-      if (age < PROFILE_CACHE_TTL_SECONDS * 1000) {
+      if (entry.version !== PROFILE_CACHE_VERSION) {
+        // Older build's shape: refetch now. Kept in `cached` for the Tier 2 fallback.
+        log.info("Profile cache entry is from an older version, refetching for PUUID:", tokens.puuid.substring(0, 8));
+      } else if (age < PROFILE_CACHE_TTL_SECONDS * 1000) {
         log.info("Profile served from cache for PUUID:", tokens.puuid.substring(0, 8));
         return {
           ...entry.data,
@@ -237,7 +251,7 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
   // Tier 1 success: at least some real data was obtained
   if (!profile.partial) {
     profile.nextUpdateAt = profile.cachedAt! + PROFILE_CACHE_TTL_SECONDS * 1000;
-    const entry: ProfileCacheEntry = { data: profile, cachedAt: profile.cachedAt! };
+    const entry: ProfileCacheEntry = { data: profile, cachedAt: profile.cachedAt!, version: PROFILE_CACHE_VERSION };
     if (redis) await redis.set(key, JSON.stringify(entry), { ex: PROFILE_CACHE_TTL_SECONDS });
     log.info("Profile fetched successfully for PUUID:", tokens.puuid.substring(0, 8));
     return profile;
