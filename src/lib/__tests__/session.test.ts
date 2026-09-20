@@ -53,7 +53,7 @@ vi.mock("next/headers", () => ({
 // Import module under test AFTER mocks are declared
 // ---------------------------------------------------------------------------
 
-const { getSessionWithRefresh, getCurrentSessionId, _resetSessionCache } = await import("@/lib/session");
+const { getSession, getSessionWithRefresh, getCurrentSessionId, _resetSessionCache } = await import("@/lib/session");
 
 // ---------------------------------------------------------------------------
 // Session fixture factory
@@ -165,6 +165,50 @@ describe("getSessionWithRefresh — branching logic", () => {
     expect(mockRefresh).not.toHaveBeenCalled();
     expect(mockDeleteSession).toHaveBeenCalledWith("test-session-id");
     expect(result).toBeNull();
+  });
+});
+
+describe("getSessionWithRefresh — a dropped session never comes back from the LRU cache", () => {
+  // Regression: /store found the session dead, deleted the store row and
+  // redirected to /login. /login then read the same cookie within the LRU
+  // TTL, got the deleted row from cache, and redirected back to /store —
+  // ERR_TOO_MANY_REDIRECTS.
+  //
+  // Each case: request 1 (/store) drops the session, request 2 (/login)
+  // must see null too. The mocked store returns null once the row is gone.
+
+  const DEAD_TOKEN_AGE = 66 * 60 * 1000; // past the 65-minute hard expiry
+
+  it.each([
+    {
+      name: "refresh fails",
+      session: () => makeSession({ createdAt: Date.now() - DEAD_TOKEN_AGE }),
+      arrange: () => mockRefresh.mockResolvedValue({ success: false, error: "SSID expired" }),
+    },
+    {
+      name: "no riotCookies to refresh with",
+      session: () => makeSession({ createdAt: Date.now() - DEAD_TOKEN_AGE, riotCookies: undefined }),
+      arrange: () => {},
+    },
+    {
+      name: "refresh throws",
+      session: () => makeSession({ createdAt: Date.now() - DEAD_TOKEN_AGE }),
+      arrange: () => mockRefresh.mockRejectedValue(new Error("network down")),
+    },
+  ])("$name: getSession() on the next request returns null", async ({ session, arrange }) => {
+    mockGetSession.mockResolvedValue(session());
+    arrange();
+
+    // Request 1 — /store: the session is dead, the store row is dropped
+    expect(await getSessionWithRefresh()).toBeNull();
+    expect(mockDeleteSession).toHaveBeenCalledWith("test-session-id");
+
+    // The row is gone from the store now
+    mockGetSession.mockResolvedValue(null);
+
+    // Request 2 — /login: must reach the store, not the stale LRU entry
+    expect(await getSession()).toBeNull();
+    expect(mockGetSession).toHaveBeenCalledTimes(2);
   });
 });
 
