@@ -9,13 +9,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yugam23/Valorant-Store-Checker/actions/workflows/ci.yml">
-    <img src="https://github.com/yugam23/Valorant-Store-Checker/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <a href="https://github.com/diegorv/Valorant-Store-Checker/actions/workflows/ci.yml">
+    <img src="https://github.com/diegorv/Valorant-Store-Checker/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
   </a>
-  <a href="https://vercel.com/new/clone?repository-url=https://github.com/yugam23/Valorant-Store-Checker">
+  <a href="https://vercel.com/new/clone?repository-url=https://github.com/diegorv/Valorant-Store-Checker">
     <img src="https://vercel.com/button" alt="Deploy with Vercel">
   </a>
 </p>
+
+> **This repository is a fork.** Valorant Store Checker was created by [Yugam](https://github.com/yugam23) at [yugam23/Valorant-Store-Checker](https://github.com/yugam23/Valorant-Store-Checker). This fork is now developed independently: it does not open pull requests against the original repository, does not track it, and the two projects are expected to diverge over time. See [Credits](#credits).
 
 ---
 
@@ -191,7 +193,7 @@ cookies never leave infrastructure you control.
 1. **Clone and configure:**
 
    ```bash
-   git clone https://github.com/yugam23/Valorant-Store-Checker.git
+   git clone https://github.com/diegorv/Valorant-Store-Checker.git
    cd Valorant-Store-Checker
    cp .env.example .env
    ```
@@ -235,7 +237,7 @@ What the Docker setup does:
 ```yaml
 services:
   app:
-    image: ghcr.io/yugam23/valorant-store-checker:latest
+    image: ghcr.io/diegorv/valorant-store-checker:latest
     pull_policy: always
 ```
 
@@ -270,7 +272,7 @@ Without a persistent Turso database, sessions are stored in a local SQLite file 
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yugam23/Valorant-Store-Checker.git
+   git clone https://github.com/diegorv/Valorant-Store-Checker.git
    cd Valorant-Store-Checker
    ```
 
@@ -443,6 +445,17 @@ This project is designed with security as a first-class concern:
 
 ---
 
+## Credits
+
+This project is a fork of [yugam23/Valorant-Store-Checker](https://github.com/yugam23/Valorant-Store-Checker), created by [Yugam](https://github.com/yugam23). The original idea, design, architecture and the bulk of the feature set are their work. Thank you.
+
+The fork is maintained separately by [diegorv](https://github.com/diegorv) and follows its own direction:
+
+- Changes made here are **not** submitted upstream as pull requests, and upstream changes are not merged back automatically.
+- Bugs and feature requests about this fork belong in [this repository's issues](https://github.com/diegorv/Valorant-Store-Checker/issues). Anything about the original project belongs in the [original repository](https://github.com/yugam23/Valorant-Store-Checker/issues).
+
+---
+
 ## License
 
-This project is open source. See [LICENSE](LICENSE) for details.
+The original repository does not ship a license file, and neither does this fork. Until one is added, the code is covered only by GitHub's default terms: you may view and fork it, but no other rights are granted. Copyright in the original work remains with its author (see [Credits](#credits)).
