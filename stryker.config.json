@@ -8,7 +8,7 @@
     "configFile": "vitest.stryker.config.ts"
   },
 
-  "_comment_coverageAnalysis": "perTest runs only the tests that cover each mutant. It is what makes a full run take minutes instead of hours. Requires the vitest runner, which in turn requires Vitest 4 — see the README.",
+  "_comment_coverageAnalysis": "perTest runs only the tests that cover each mutant. It is what makes a full run take minutes instead of hours. Requires the vitest runner, which in turn requires Vitest 4 — see DEVELOPMENT.md.",
   "coverageAnalysis": "perTest",
 
   "_comment_concurrency": "The default is (cores - 1), which on a 10-core laptop means 9 workers and an unusable desktop. 4 matches the GitHub runner and is enough.",
