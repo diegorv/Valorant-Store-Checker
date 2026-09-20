@@ -6,6 +6,7 @@ import { IdentityInfo } from "@/components/profile/IdentityInfo";
 import { AccountLevelBadge } from "@/components/profile/AccountLevelBadge";
 import { RankDisplay } from "@/components/profile/RankDisplay";
 import { RRProgressBar } from "@/components/profile/RRProgressBar";
+import { ActHistory } from "@/components/profile/ActHistory";
 import { AlertCircle, Clock } from "lucide-react";
 import type { ProfilePageData } from "@/types/profile";
 
@@ -233,6 +234,9 @@ export default function ProfilePage() {
                 competitiveTierName={profileData.competitiveTierName}
                 competitiveTierIcon={profileData.competitiveTierIcon}
                 peakTierName={profileData.peakTierName}
+                peakSeason={profileData.peakSeason}
+                gamesNeededForRating={profileData.gamesNeededForRating}
+                leaderboardRank={profileData.leaderboardRank}
                 henrikFailed={profileData.henrikFailed}
               />
             </div>
@@ -250,7 +254,15 @@ export default function ProfilePage() {
               className="stagger-entrance px-1"
               style={{ "--stagger-delay": "400ms" } as React.CSSProperties}
             >
-              <RRProgressBar rankingInTier={profileData.rankingInTier} />
+              <RRProgressBar rankingInTier={profileData.rankingInTier} lastChange={profileData.mmrChangeToLastGame} />
+            </div>
+
+            {/* Section 5: Act History */}
+            <div
+              className="stagger-entrance px-1"
+              style={{ "--stagger-delay": "500ms" } as React.CSSProperties}
+            >
+              <ActHistory acts={profileData.actHistory} />
             </div>
 
             {/* Last updated / next update — profile data is cached server-side */}

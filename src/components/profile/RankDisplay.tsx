@@ -1,9 +1,16 @@
 import Image from "next/image";
+import { formatSeasonShort } from "@/lib/season";
 
 interface RankDisplayProps {
   competitiveTierName?: string;
   competitiveTierIcon?: string;
   peakTierName?: string;
+  /** Act the peak was reached in, Henrik short code (e.g. "e8a2") */
+  peakSeason?: string;
+  /** Placement games still needed before a rank is assigned */
+  gamesNeededForRating?: number;
+  /** Immortal+ leaderboard position, when placed */
+  leaderboardRank?: number;
   henrikFailed?: boolean;
 }
 
@@ -11,14 +18,22 @@ export function RankDisplay({
   competitiveTierName,
   competitiveTierIcon,
   peakTierName,
+  peakSeason,
+  gamesNeededForRating,
+  leaderboardRank,
   henrikFailed,
 }: RankDisplayProps) {
   if (competitiveTierName === undefined) {
     return (
-      <div className="angular-card-sm bg-void-surface/30 p-4 text-center">
+      <div className="angular-card-sm bg-void-surface/30 p-4 text-center space-y-1">
         <p className="text-zinc-500 text-xs uppercase tracking-wider font-display">
           {henrikFailed ? "Rank unavailable" : "Unrated"}
         </p>
+        {!henrikFailed && gamesNeededForRating !== undefined && gamesNeededForRating > 0 && (
+          <p className="text-zinc-400 text-sm">
+            {gamesNeededForRating} placement {gamesNeededForRating === 1 ? "game" : "games"} to go
+          </p>
+        )}
       </div>
     );
   }
@@ -34,6 +49,11 @@ export function RankDisplay({
           )}
           <p className="font-display text-xl text-light">{competitiveTierName}</p>
         </div>
+        {leaderboardRank !== undefined && (
+          <p className="text-xs text-zinc-400">
+            Leaderboard <span className="font-display text-brand">#{leaderboardRank.toLocaleString()}</span>
+          </p>
+        )}
       </div>
 
       {/* Peak Rank card — text only, no img (highest_rank.images unreliable in v2) */}
@@ -42,6 +62,9 @@ export function RankDisplay({
         <p className="font-display text-xl text-light">
           {peakTierName ?? <span className="text-zinc-600 text-sm">Unknown</span>}
         </p>
+        {peakTierName && peakSeason && (
+          <p className="text-xs text-zinc-400">{formatSeasonShort(peakSeason)}</p>
+        )}
       </div>
     </div>
   );

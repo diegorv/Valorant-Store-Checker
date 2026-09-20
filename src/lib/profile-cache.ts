@@ -20,7 +20,8 @@
 import { redis } from "@/lib/redis-client";
 import { StoreTokens } from "./riot-store";
 import { getPlayerLoadout } from "./riot-loadout";
-import { getHenrikAccount, getHenrikMMR } from "./henrik-api";
+import { getHenrikAccount, getHenrikMMR, type HenrikMMRData } from "./henrik-api";
+import { compareSeasonShortDesc } from "./season";
 import { getPlayerCardByUuid, getPlayerTitleByUuid, getCompetitiveTierIconByTier } from "./valorant-api";
 import { createLogger } from "./logger";
 
@@ -55,6 +56,10 @@ export interface ProfileData {
   mmrChangeToLastGame?: number;
   peakTier?: number;                // highest_rank.tier from Henrik v2 MMR
   peakTierName?: string;            // highest_rank.patched from Henrik v2 MMR (e.g. "Gold 3")
+  peakSeason?: string;              // act the peak was reached in, Henrik short code (e.g. "e8a2")
+  gamesNeededForRating?: number;    // placement games left before a rank is assigned
+  leaderboardRank?: number;         // Immortal+ leaderboard position, when placed
+  actHistory?: ActRecord[];         // competitive history per act, newest first
 
   // Metadata
   fromCache: boolean;
@@ -62,6 +67,32 @@ export interface ProfileData {
   cachedAt?: number;                // timestamp for "last updated" display (INFR-03)
   nextUpdateAt?: number;            // when the cache expires and data will be re-fetched
   henrikFailed: boolean;            // true when Henrik API (account or MMR) fails
+}
+
+/** One act of competitive history, as shown on the profile page. */
+export interface ActRecord {
+  season: string;        // Henrik short code, e.g. "e8a2" or "v25a1"
+  wins: number;
+  games: number;
+  endTier?: number;
+  endTierName?: string;  // rank at the end of the act, e.g. "Gold 3"
+  endRR?: number;
+}
+
+/** Acts with no games are noise; newest act first. */
+function toActHistory(seasonal: HenrikMMRData["seasonal"]): ActRecord[] | undefined {
+  if (!seasonal) return undefined;
+  return seasonal
+    .filter((act) => act.games > 0)
+    .map((act) => ({
+      season: act.season.short,
+      wins: act.wins,
+      games: act.games,
+      endTier: act.end_tier?.id,
+      endTierName: act.end_tier?.name,
+      endRR: act.end_rr ?? undefined,
+    }))
+    .sort((a, b) => compareSeasonShortDesc(a.season, b.season));
 }
 
 interface ProfileCacheEntry {
@@ -188,6 +219,10 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     mmrChangeToLastGame: mmr?.current?.last_change,
     peakTier: mmr?.peak?.tier?.id,
     peakTierName: mmr?.peak?.tier?.name,
+    peakSeason: mmr?.peak?.season?.short,
+    gamesNeededForRating: mmr?.current?.games_needed_for_rating,
+    leaderboardRank: mmr?.current?.leaderboard_placement?.rank ?? undefined,
+    actHistory: toActHistory(mmr?.seasonal),
 
     // Metadata — partial if we got nothing useful from either primary sources
     fromCache: false,

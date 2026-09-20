@@ -13,7 +13,7 @@
 import { env } from "./env";
 import { createLogger } from "./logger";
 import { parseWithLog } from "@/lib/schemas/parse";
-import { HenrikAccountSchema, HenrikMMRSchema } from "@/lib/schemas/henrik";
+import { HenrikAccountSchema, HenrikMMRSchema, HenrikSeasonalSchema } from "@/lib/schemas/henrik";
 import { toHenrikRegion } from "@/lib/region-utils";
 
 const log = createLogger("henrik-api");
@@ -55,6 +55,8 @@ export interface HenrikMMRCurrent {
   last_change: number;
   elo: number;
   games_needed_for_rating: number;
+  /** Immortal+ only; null for everyone else */
+  leaderboard_placement?: { rank: number } | null;
 }
 
 /** Peak rank data from Henrik /v3/by-puuid/mmr response */
@@ -64,12 +66,23 @@ export interface HenrikMMRPeak {
     short: string;
   };
   tier?: HenrikMMRTier;
+  rr?: number;
+}
+
+/** One act of competitive history from Henrik /v3/by-puuid/mmr `seasonal[]` */
+export interface HenrikSeasonal {
+  season: { id: string; short: string };
+  wins: number;
+  games: number;
+  end_tier?: HenrikMMRTier | null;
+  end_rr?: number | null;
 }
 
 /** Full MMR response data from Henrik /v3/by-puuid/mmr */
 export interface HenrikMMRData {
   current?: HenrikMMRCurrent;
   peak?: HenrikMMRPeak;
+  seasonal?: HenrikSeasonal[];
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +188,16 @@ export async function getHenrikMMR(puuid: string, region: string): Promise<Henri
     }
 
     const json = await response.json();
-    const rawMmr = { current: json.data.current, peak: json.data.peak };
+    // Acts are validated one by one: an act with an unexpected shape is dropped
+    // with a log line instead of failing the whole response (and the rank with it).
+    const seasonal = Array.isArray(json.data.seasonal)
+      ? json.data.seasonal.flatMap((act: unknown) => {
+          const parsed = HenrikSeasonalSchema.safeParse(act);
+          if (!parsed.success) log.warn("Dropping malformed seasonal entry:", parsed.error.issues[0]?.message);
+          return parsed.success ? [parsed.data] : [];
+        })
+      : undefined;
+    const rawMmr = { current: json.data.current, peak: json.data.peak, seasonal };
     const mmrData = parseWithLog(HenrikMMRSchema, rawMmr, "HenrikMMR");
     if (!mmrData) { return cached?.data ?? null; }
     mmrCache.set(puuid, { data: mmrData, fetchedAt: Date.now() });

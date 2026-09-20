@@ -114,6 +114,30 @@ describe("HenrikMMRSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("seasonal acts, peak rr and leaderboard placement: parse when present, optional when absent", () => {
+    const withExtras = {
+      current: {
+        tier: { id: 24, name: "Immortal 3" },
+        rr: 75,
+        last_change: -10,
+        elo: 2475,
+        games_needed_for_rating: 0,
+        leaderboard_placement: { rank: 412 },
+      },
+      peak: { season: { id: "e8a1", short: "e8a1" }, tier: { id: 25, name: "Radiant" }, rr: 12 },
+      seasonal: [
+        { season: { id: "e8a1", short: "e8a1" }, wins: 30, games: 52, end_tier: { id: 25, name: "Radiant" }, end_rr: 12 },
+        { season: { id: "e7a3", short: "e7a3" }, wins: 0, games: 0, end_tier: null, end_rr: null },
+      ],
+    };
+    const result = HenrikMMRSchema.safeParse(withExtras);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.seasonal).toHaveLength(2);
+      expect(result.data.current?.leaderboard_placement?.rank).toBe(412);
+    }
+  });
+
   it("invalid current.tier (missing required name field): fails validation", () => {
     const invalidMMR = {
       current: {
