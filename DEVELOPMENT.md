@@ -184,7 +184,7 @@ src/
 │   ├── store/                # Daily store, Night Market, bundles (protected)
 │   ├── profile/              # Rank, level, identity (protected)
 │   ├── inventory/            # Owned weapon skins + PDF export (protected)
-│   ├── history/              # Store rotation history (client-side, IndexedDB)
+│   ├── history/              # Store rotation history (server-side, via /api/history)
 │   ├── wishlist/             # Wishlist page
 │   ├── encyclopedia/         # All weapon skins, filterable (public, revalidated hourly)
 │   └── api/
@@ -192,7 +192,8 @@ src/
 │       ├── profile/          # Identity + rank
 │       ├── inventory/        # Owned weapon skins
 │       ├── wishlist/         # Bookmark management
-│       └── accounts/         # Multi-account list + switch
+│       ├── accounts/         # Multi-account list + switch
+│       └── history/          # Store rotation history: list, delete, one-time browser import
 ├── components/
 │   ├── auth/                 # LoginForm
 │   ├── store/                # StoreCard, StoreGrid, DailyStore, Bundle, NightMarket, Wallet, LoadingSkeleton, SectionErrorBoundary
@@ -226,7 +227,8 @@ src/
     ├── riot-inventory.ts     # Owned weapon skins
     ├── store-service.ts      # Store page orchestration (storefront + catalog)
     ├── store-cache.ts        # Store cache (Redis, until the next rotation)
-    ├── store-history.ts      # Store rotation history (Dexie / IndexedDB)
+    ├── store-history-db.ts   # Store rotation history (LibSQL; written when /store renders)
+    ├── store-history.ts      # Legacy browser history (Dexie), read once for the import
     ├── profile-cache.ts      # Profile cache (Redis, 6h)
     ├── inventory-cache.ts    # Inventory cache (in-memory, 24h)
     ├── wishlist.ts           # Wishlist persistence (LibSQL)

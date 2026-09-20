@@ -48,7 +48,6 @@ describe("DailyStoreClient", () => {
           items={items}
           initialWishlistedUuids={[]}
           expiresAt={new Date(Date.now() + 86400000).toISOString()}
-          puuid="test-puuid"
         />
       );
 
@@ -72,7 +71,6 @@ describe("DailyStoreClient", () => {
           items={items}
           initialWishlistedUuids={[]}
           expiresAt={new Date(Date.now() + 86400000).toISOString()}
-          puuid="test-puuid"
         />
       );
 
@@ -90,7 +88,6 @@ describe("DailyStoreClient", () => {
           items={[]}
           initialWishlistedUuids={[]}
           expiresAt={new Date(Date.now() + 86400000).toISOString()}
-          puuid="test-puuid"
         />
       );
 

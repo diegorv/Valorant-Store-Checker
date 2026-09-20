@@ -20,6 +20,7 @@ import fs from 'fs';
 
 import type { SessionData } from './schemas/session';
 import { createLogger } from "./logger";
+import { CREATE_STORE_ROTATIONS_TABLE, CREATE_STORE_ROTATIONS_INDEX } from './store-history-db';
 const log = createLogger("session-db");
 
 // ---------------------------------------------------------------------------
@@ -210,6 +211,8 @@ export function initSessionDb(): Promise<Client> {
           { sql: CREATE_SESSIONS_TABLE, args: [] },
           { sql: CREATE_SESSIONS_INDEX, args: [] },
           { sql: CREATE_WISHLISTS_TABLE, args: [] },
+          { sql: CREATE_STORE_ROTATIONS_TABLE, args: [] },
+          { sql: CREATE_STORE_ROTATIONS_INDEX, args: [] },
         ],
         'write'
       );

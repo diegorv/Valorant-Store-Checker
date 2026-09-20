@@ -35,7 +35,7 @@ You can use someone's hosted copy or run your own in a few minutes. See [Getting
 | **Night Market**      | Your personal Night Market discounts whenever the event is running                                             |
 | **Bundles**           | The featured bundle with every item in it, its price and a countdown to when it leaves                        |
 | **Wallet**            | Your Valorant Points and Radianite Points                                                                      |
-| **Store History**     | Every rotation you have checked, by date, with how often a skin came back and what it cost                     |
+| **Store History**     | Every rotation you have checked, by date, with how often a skin came back and what it cost. Saved to your account, so it is the same on every device |
 | **Wishlist**          | Save the skins you want; they are highlighted the moment they appear in your store                             |
 | **Collection**        | Every weapon skin you own, with a PDF export                                                                   |
 | **Profile**           | Your Riot ID, account level, current rank and RR progress                                                      |
@@ -50,8 +50,8 @@ You can use someone's hosted copy or run your own in a few minutes. See [Getting
 This section is for anyone deciding whether to trust the app with their Riot account. The technical details behind each point are in [ARCHITECTURE.md → Security](ARCHITECTURE.md#security).
 
 - **The site never asks for your Riot password.** You log in on Riot's own page, then paste back either the link Riot sends you to or your Riot cookies. The app uses what you paste only to read your store, collection and profile.
-- **What is stored on the server.** Your Riot session (the tokens and cookies you pasted, plus your Riot ID and region) and your wishlist. The session is encrypted with a key only the host has, so a copy of the database is useless without it. Sessions expire on their own: tokens are refreshed about every hour, a session that can no longer be refreshed is deleted, and no session lives longer than 30 days.
-- **What stays in your browser.** An anonymous session ID in a cookie that page scripts cannot read, and your store history, which is saved in your browser's own storage and never sent to the server. Clearing the site's data removes both.
+- **What is stored on the server.** Your Riot session (the tokens and cookies you pasted, plus your Riot ID and region), your wishlist, and your store history: one record per day you open the store, with the four skins and their prices, so it follows your account across devices. The session is encrypted with a key only the host has, so a copy of the database is useless without it. Sessions expire on their own: tokens are refreshed about every hour, a session that can no longer be refreshed is deleted, and no session lives longer than 30 days.
+- **What stays in your browser.** Only an anonymous session ID in a cookie that page scripts cannot read. Clearing the site's data signs you out and nothing else.
 - **Signing out is immediate.** Logging out deletes your session from the server right away. It does not touch your Riot account, and the cookies you pasted stay valid at Riot until they expire there.
 - **Who else is contacted.** Your store, wallet and collection come straight from Riot's servers, using the session you pasted. Rank and level come from [HenrikDev](https://docs.henrikdev.xyz), a public Valorant stats API, which is only sent your player ID and region, never your session. Skin images and names come from [valorant-api.com](https://valorant-api.com). Nothing else is contacted, and there is no analytics or tracking.
 - **Protection against abuse.** Sign-in attempts are rate limited per IP address, every page is served with strict browser security headers, and production instances only work over HTTPS.
