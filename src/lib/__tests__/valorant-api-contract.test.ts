@@ -7,7 +7,7 @@
  * the module could have fetched the wrong endpoint, cached under the wrong key,
  * or written entries with no expiry, with every existing test still green.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
@@ -396,6 +396,18 @@ describe("rejects responses that should not be trusted", () => {
 // ---------------------------------------------------------------------------
 
 describe("cache expiry boundary", () => {
+  // The module compares the entry's timestamp against its own Date.now(). With
+  // real time, a millisecond can tick between building the entry here and that
+  // comparison, turning "exactly at the TTL" into "one past it" (CI flake).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("serves an entry that is exactly 24h old", async () => {
     const spy = fetchMock(ok([SKIN]));
     mockRedisGet.mockResolvedValue(
