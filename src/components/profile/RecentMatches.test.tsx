@@ -10,7 +10,7 @@ afterEach(() => {
 
 const MATCH: RecentMatch = {
   id: "m1", map: "Haven", agent: "Killjoy", agentId: "kj", startedAt: "2026-09-20T10:00:00Z",
-  result: "loss", roundsWon: 10, roundsLost: 13, kills: 14, deaths: 16, assists: 6, headshotPct: 23, damageDealt: 2400, score: 3200,
+  result: "loss", roundsWon: 10, roundsLost: 13, kills: 14, deaths: 16, assists: 6, shotsHit: 61, headshots: 14, headshotPct: 23, damageDealt: 2400, score: 3200,
 };
 
 describe("RecentMatches", () => {

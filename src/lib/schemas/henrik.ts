@@ -58,8 +58,9 @@ export const HenrikSeasonalSchema = z.object({
 
 /**
  * One entry of Henrik /v1/by-puuid/stored-matches. Only the fields the
- * profile uses are declared; anything else passes through untouched. Parsed
- * entry by entry (see henrik-api.ts) so one odd match cannot drop the list.
+ * profile uses are declared; the rest of the payload is dropped on parse,
+ * which keeps the in-memory cache small. Parsed entry by entry (see
+ * henrik-api.ts) so one odd match cannot drop the list.
  */
 export const HenrikStoredMatchSchema = z.object({
   meta: z.object({

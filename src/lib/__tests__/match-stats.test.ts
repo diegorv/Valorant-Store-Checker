@@ -89,6 +89,16 @@ describe("aggregateMatchStats", () => {
     ]);
   });
 
+  it("aggregates headshot % over all shots that hit, not as an average of per-match percentages", () => {
+    const uneven = toRecentMatches([
+      stored({ id: "a", head: 1, body: 0, leg: 0 }),       // 100% on a single hit
+      stored({ id: "b", head: 10, body: 80, leg: 10 }),    // 10% on a hundred hits
+    ]);
+    const stats = aggregateMatchStats(uneven)!;
+    expect(stats.headshotPct).toBe(11); // 11 of 101, not (100 + 10) / 2
+    expect(uneven.map((m) => m.headshotPct)).toEqual([100, 10]);
+  });
+
   it("returns null with no matches and never divides by zero deaths", () => {
     expect(aggregateMatchStats([])).toBeNull();
     const stats = aggregateMatchStats(toRecentMatches([stored({ deaths: 0, kills: 7 })]))!;

@@ -223,7 +223,9 @@ export async function getHenrikStoredMatches(
   region: string,
   size = 20,
 ): Promise<HenrikStoredMatch[] | null> {
-  const cached = matchesCache.get(puuid);
+  // Keyed by size too: a caller asking for 20 must not get a cached list of 10
+  const cacheKey = `${puuid}:${size}`;
+  const cached = matchesCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
     log.info("Returning cached Henrik matches for PUUID:", puuid.substring(0, 8));
     return cached.data;
@@ -257,7 +259,7 @@ export async function getHenrikStoredMatches(
       if (!parsed.success) log.warn("Dropping malformed stored match:", parsed.error.issues[0]?.path.join("."), parsed.error.issues[0]?.message);
       return parsed.success ? [parsed.data] : [];
     });
-    matchesCache.set(puuid, { data: matches, fetchedAt: Date.now() });
+    matchesCache.set(cacheKey, { data: matches, fetchedAt: Date.now() });
     log.info(`Henrik stored-matches fetched: ${matches.length} of ${json.data.length} entries kept for PUUID:`, puuid.substring(0, 8));
     return matches;
   } catch (error) {
@@ -275,7 +277,9 @@ export function clearHenrikCache(puuid?: string): void {
   if (puuid) {
     accountCache.delete(puuid);
     mmrCache.delete(puuid);
-    matchesCache.delete(puuid);
+    for (const key of matchesCache.keys()) {
+      if (key.startsWith(`${puuid}:`)) matchesCache.delete(key);
+    }
   } else {
     accountCache.clear();
     mmrCache.clear();

@@ -23,7 +23,10 @@ export interface RecentMatch {
   kills: number;
   deaths: number;
   assists: number;
-  /** 0–100, of all shots that hit */
+  /** Shots that hit (head + body + leg) and how many of them were headshots; kept raw so lists can be aggregated exactly */
+  shotsHit: number;
+  headshots: number;
+  /** 0–100, headshots / shotsHit for this match */
   headshotPct: number;
   damageDealt: number;
   score: number;
@@ -49,7 +52,7 @@ export interface MatchStats {
   kd: number;
   /** (kills + assists) / deaths, deaths floored at 1 */
   kda: number;
-  /** 0–100, of all shots that hit across the matches */
+  /** 0–100, total headshots over total shots that hit across the matches (not an average of per-match percentages) */
   headshotPct: number;
   avgDamage: number;
   avgScore: number;
@@ -93,6 +96,8 @@ export function toRecentMatch(match: HenrikStoredMatch): RecentMatch | null {
     kills: match.stats.kills,
     deaths: match.stats.deaths,
     assists: match.stats.assists,
+    shotsHit: head + body + leg,
+    headshots: head,
     headshotPct: pct(head, head + body + leg),
     damageDealt: match.stats.damage.dealt,
     score: match.stats.score,
@@ -115,9 +120,7 @@ export function aggregateMatchStats(matches: RecentMatch[], topAgentCount = 3): 
 
   let wins = 0, losses = 0, draws = 0;
   let kills = 0, deaths = 0, assists = 0, damage = 0, score = 0;
-  // headshotPct per match is already rounded; recompute from the raw ratio would need shots,
-  // so weight each match's percentage by its share — close enough for a summary.
-  let hsSum = 0;
+  let shotsHit = 0, headshots = 0;
   const byAgent = new Map<string, AgentSummary>();
 
   for (const m of matches) {
@@ -125,7 +128,8 @@ export function aggregateMatchStats(matches: RecentMatch[], topAgentCount = 3): 
     else if (m.result === "loss") losses++;
     else draws++;
     kills += m.kills; deaths += m.deaths; assists += m.assists;
-    damage += m.damageDealt; score += m.score; hsSum += m.headshotPct;
+    damage += m.damageDealt; score += m.score;
+    shotsHit += m.shotsHit; headshots += m.headshots;
 
     const agent = byAgent.get(m.agent) ?? { name: m.agent, agentId: m.agentId, games: 0, wins: 0, winRate: 0 };
     agent.games++;
@@ -146,7 +150,7 @@ export function aggregateMatchStats(matches: RecentMatch[], topAgentCount = 3): 
     winRate: pct(wins, decided),
     kd: Math.round((kills / safeDeaths) * 100) / 100,
     kda: Math.round(((kills + assists) / safeDeaths) * 100) / 100,
-    headshotPct: Math.round(hsSum / matches.length),
+    headshotPct: pct(headshots, shotsHit),
     avgDamage: Math.round(damage / matches.length),
     avgScore: Math.round(score / matches.length),
     form: matches.map((m) => m.result),
