@@ -21,11 +21,47 @@
 
 ---
 
-## Overview
+## What it does
 
-Valorant Store Checker is a production-grade, security-hardened Next.js application that authenticates with Riot's OAuth flow and surfaces your personalized in-game store. You sign in by pasting the Riot redirect URL or your Riot cookies into the form; the API additionally accepts username/password with MFA for external clients. It supports multi-account switching, store rotation history, wishlists, inventory browsing, a skin encyclopedia, and full profile/rank display — all without ever opening the Valorant client.
+Valorant Store Checker is a website that shows what is in your Valorant store right now: the four daily skins, the Night Market when it is on, the featured bundle and your VP balance. Sign in with your Riot account once and check the store from any browser, on your phone or at work, without launching the game.
 
-Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server, and all Riot cookies are stored server-side only. The project ships with a comprehensive Vitest test suite and can be self-hosted on Vercel or with Docker.
+It also remembers the rotations you have seen, keeps a wishlist and highlights a skin the moment it shows up in your store, and shows your collection, rank and level.
+
+You can use someone's hosted copy or run your own in a few minutes. See [Getting Started](#getting-started).
+
+---
+
+## Features
+
+| Feature               | What you get                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Daily Store**       | The four skins in your rotation today, with prices and rarity tiers                                            |
+| **Night Market**      | Your personal Night Market discounts whenever the event is running                                             |
+| **Bundles**           | The featured bundle with every item in it, its price and a countdown to when it leaves                        |
+| **Wallet**            | Your Valorant Points and Radianite Points                                                                      |
+| **Store History**     | Every rotation you have checked, by date, with how often a skin came back and what it cost                     |
+| **Wishlist**          | Save the skins you want; they are highlighted the moment they appear in your store                             |
+| **Collection**        | Every weapon skin you own, with a PDF export                                                                   |
+| **Profile**           | Your Riot ID, account level, current rank and RR progress                                                      |
+| **Encyclopedia**      | Every weapon skin in the game, filterable by weapon and rarity, no sign-in needed                              |
+| **Multiple accounts** | Add more than one Riot account and switch between them                                                         |
+| **Stay signed in**    | Sign in with the Riot login link and stay in for about an hour; sign in with your Riot cookies and stay in for up to 30 days |
+
+---
+
+## Your data and how it is protected
+
+This section is for anyone deciding whether to trust the app with their Riot account. The technical details behind each point are in [ARCHITECTURE.md → Security](ARCHITECTURE.md#security).
+
+- **The site never asks for your Riot password.** You log in on Riot's own page, then paste back either the link Riot sends you to or your Riot cookies. The app uses what you paste only to read your store, collection and profile.
+- **What is stored on the server.** Your Riot session (the tokens and cookies you pasted, plus your Riot ID and region) and your wishlist. The session is encrypted with a key only the host has, so a copy of the database is useless without it. Sessions expire on their own: tokens are refreshed about every hour, a session that can no longer be refreshed is deleted, and no session lives longer than 30 days.
+- **What stays in your browser.** An anonymous session ID in a cookie that page scripts cannot read, and your store history, which is saved in your browser's own storage and never sent to the server. Clearing the site's data removes both.
+- **Signing out is immediate.** Logging out deletes your session from the server right away. It does not touch your Riot account, and the cookies you pasted stay valid at Riot until they expire there.
+- **Who else is contacted.** Your store, wallet and collection come straight from Riot's servers, using the session you pasted. Rank and level come from [HenrikDev](https://docs.henrikdev.xyz), a public Valorant stats API, which is only sent your player ID and region, never your session. Skin images and names come from [valorant-api.com](https://valorant-api.com). Nothing else is contacted, and there is no analytics or tracking.
+- **Protection against abuse.** Sign-in attempts are rate limited per IP address, every page is served with strict browser security headers, and production instances only work over HTTPS.
+- **Host it yourself.** If you would rather not trust someone else's server with your Riot session, [HOSTING.md](HOSTING.md) shows how to run your own copy on Vercel or with Docker, with the same protections.
+
+> **Disclaimer:** This project is not affiliated with Riot Games. Usage is subject to Riot's Terms of Service. Credentials are only used to authenticate directly with Riot's servers — they are never stored or logged.
 
 ---
 
@@ -33,44 +69,7 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 
 - **Host it yourself** → [HOSTING.md](HOSTING.md): environment variables, one-click Vercel deploy, Docker Compose setup and Turso.
 - **Work on the code** → [DEVELOPMENT.md](DEVELOPMENT.md): local setup, the unit, end-to-end and mutation test suites, and the project layout.
-- **Understand how it works** → [ARCHITECTURE.md](ARCHITECTURE.md): tech stack, request flow and the patterns the code relies on.
-
----
-
-## Features
-
-| Feature            | Description                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| **Daily Store**    | View all 4 daily rotating skins with VP pricing and tier icons                             |
-| **Night Market**   | Check your personalized Night Market discounts when active                                 |
-| **Bundles**        | Browse current featured bundles with full item breakdowns and pricing                      |
-| **Wallet**         | See your current VP and Radianite Point balances                                           |
-| **Store History**  | Browse past store rotations indexed by date, with repeat and price statistics              |
-| **Wishlist**       | Bookmark skins you want; get highlighted when they appear in your store                    |
-| **Inventory**      | View all cosmetics you currently own (skins, sprays, cards, etc.) and export them as a PDF |
-| **Profile & Rank** | Display your Riot ID, account level, current rank, and RR progress                         |
-| **Encyclopedia**   | Browse every weapon skin in the game, filterable by weapon and tier (`/encyclopedia`)      |
-| **Multi-Account**  | Link and switch between multiple Riot accounts in one session                              |
-| **Sign-in**        | Paste the Riot redirect URL or your Riot cookies; cookie sign-in refreshes itself for up to 30 days |
-| **API auth**       | `POST /api/auth` also accepts username/password with MFA, for external clients             |
-
----
-
-## Security
-
-This project is designed with security as a first-class concern:
-
-- **HTTP-only cookies** — session tokens are never accessible to JavaScript
-- **Server-side token storage** — Riot access tokens and cookies never reach the client
-- **AES-256-GCM encryption** — all Riot cookies are encrypted at rest in the database
-- **Reference-token sessions** — JWTs contain only a session ID, not the session payload
-- **Zod input validation** — all API routes reject malformed requests early with 400 responses
-- **CSP headers** — Content Security Policy that limits images and media to valorant-api.com, blocks framing and plugins, restricts forms to the app itself and upgrades insecure requests. Inline scripts stay allowed (Next.js hydration needs them), so it is not a nonce-based CSP
-- **HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy** — full security header suite
-- **Automatic token refresh** — SSID-based refresh at 55 minutes; sessions invalidated at 65 minutes
-- **Session cleanup** — expired sessions purged from the database hourly
-
-> **Disclaimer:** This project is not affiliated with Riot Games. Usage is subject to Riot's Terms of Service. Credentials are only used to authenticate directly with Riot's servers — they are never stored or logged.
+- **Understand how it works** → [ARCHITECTURE.md](ARCHITECTURE.md): tech stack, request flow, authentication, security measures and the patterns the code relies on.
 
 ---
 

@@ -5,6 +5,8 @@ How Valorant Store Checker is built: the stack, the request flow and the pattern
 - [Tech Stack](#tech-stack)
 - [Overview](#overview)
 - [Key patterns](#key-patterns)
+- [Authentication](#authentication)
+- [Security](#security)
 
 ---
 
@@ -41,7 +43,7 @@ How Valorant Store Checker is built: the stack, the request flow and the pattern
 │  ├── actions/auth    ← login form (server action)    │
 │  ├── /api/auth       ← multi-step Riot OAuth         │
 │  ├── /api/profile    ← rank + identity               │
-│  ├── /api/inventory  ← owned cosmetics               │
+│  ├── /api/inventory  ← owned weapon skins            │
 │  ├── /api/wishlist   ← bookmark management           │
 │  └── /api/accounts   ← multi-account switching       │
 │                                                      │
@@ -55,7 +57,7 @@ How Valorant Store Checker is built: the stack, the request flow and the pattern
 │  ├── riot-reauth.ts     (SSID token refresh)         │
 │  ├── riot-store.ts      (daily / night market / bundles) │
 │  ├── riot-tokens.ts     (entitlements extraction)    │
-│  └── riot-inventory.ts  (cosmetics)                  │
+│  └── riot-inventory.ts  (owned weapon skins)         │
 └──────────────────────┬──────────────────────────────┘
                        │
          ┌─────────────┼──────────────┐
@@ -74,3 +76,28 @@ How Valorant Store Checker is built: the stack, the request flow and the pattern
 - **Auth rate limiting** — sliding-window limit on login attempts per IP, backed by Redis (fails open when Redis is not configured)
 - **Shard memoization** — the first Riot PD request tries the session's shard alone and remembers the one that works, instead of probing every shard
 - **Section-level error boundaries** — each store section fails independently; the rest of the page renders
+
+---
+
+## Authentication
+
+- **Web form** (`components/auth/LoginForm.tsx` → server action `actions/auth.ts`): the user logs in on Riot's page and pastes back either the redirect URL (`https://playvalorant.com/opt_in#access_token=…&id_token=…`) or a Riot cookie string (`ssid`, `clid`, `csid`, `tdid`). The password never reaches this app.
+- **`POST /api/auth`** accepts the same two payloads (`url`, `cookie`) plus `auth` (username/password) and `multifactor` (MFA code) for external clients. Handlers live in `lib/auth-handlers/`.
+- **Session** = a 30-day row in LibSQL holding the Riot tokens, plus an HTTP-only cookie carrying a signed JWT with nothing but the row's ID. Riot cookies in the row are encrypted with `ENCRYPTION_KEY` (AES-256-GCM).
+- **Token lifecycle**: Riot access tokens last about an hour. `getSessionWithRefresh()` re-authenticates with the stored `ssid` once the token is 55 minutes old; if that fails (or there are no cookies to refresh with) the stale token is still returned until 65 minutes, then the session is deleted and the user is sent to the login form. URL sign-in stores no Riot cookies, so it cannot refresh and ends after about an hour; cookie sign-in refreshes for up to 30 days (Riot's `ssid` lifetime).
+- **Logout** (`POST /api/auth/logout`) deletes the session row, evicts it from the in-memory cache and clears the cookie. Riot's own cookies are not revoked.
+
+---
+
+## Security
+
+This project is designed with security as a first-class concern:
+
+- **HTTP-only cookies** — session tokens are never accessible to JavaScript
+- **Server-side token storage** — Riot access tokens and cookies never reach the client
+- **AES-256-GCM encryption** — all Riot cookies are encrypted at rest in the database
+- **Reference-token sessions** — JWTs contain only a session ID, not the session payload
+- **Zod input validation** — all API routes reject malformed requests early with 400 responses
+- **CSP headers** — Content Security Policy that limits images and media to valorant-api.com, blocks framing and plugins, restricts forms to the app itself and upgrades insecure requests. Inline scripts stay allowed (Next.js hydration needs them), so it is not a nonce-based CSP
+- **HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy** — full security header suite
+- **Session cleanup** — expired sessions purged from the database hourly
