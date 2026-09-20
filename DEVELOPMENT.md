@@ -130,6 +130,46 @@ runner, one full Vitest process per mutant) is correct but takes ~2.5 hours on a
 laptop and over 5 on a CI runner. Don't bump Vitest to 5 until the runner
 supports it — check <https://github.com/stryker-mutator/stryker-js/releases>.
 
+## Required checks
+
+A red CI job does **not** block a merge on its own. GitHub only greys out the
+merge button when a ruleset on `main` names a required status check, and the
+repository shipped without one — PR #8 was merged while its `E2E` job was still
+running, and the job then failed.
+
+`ci.yml` has a `CI` job for this. It depends on `Build`, `Test` and `E2E`, runs
+even when one of them failed or was cancelled (`if: always()`), and exits
+non-zero unless all three succeeded. Requiring that single check covers the
+whole pipeline and survives jobs being renamed or added. `Mutation testing` is
+deliberately left out (see above).
+
+To protect `main` (repository **Settings → Rules → Rulesets → New ruleset →
+New branch ruleset**):
+
+1. **Ruleset name:** `main`. **Enforcement status:** Active.
+2. **Bypass list:** leave empty. Admins are *not* exempt unless listed here, so
+   an empty list means the rules apply to your own pushes too.
+3. **Target branches:** Add target → *Include default branch*.
+4. Under **Rules**, tick:
+   - *Restrict deletions* and *Block force pushes*.
+   - *Require a pull request before merging*. Required approvals can stay `0`
+     on a single-maintainer repository; the point is that every change lands
+     through a PR, which is what runs and enforces the checks below.
+   - *Require status checks to pass* → *Add checks* → search `CI` and pick the
+     one whose source is GitHub Actions. Optionally also tick *Require branches
+     to be up to date before merging*, so a PR is re-tested on the current
+     `main` before it can merge.
+5. **Create**.
+
+The `CI` check only shows up in the *Add checks* search after it has run at
+least once, so merge the workflow change first (or open a PR from a branch
+that carries it) and then create the ruleset. Rulesets on private repositories
+need a paid plan; on public ones they are free.
+
+With the ruleset active, `git push origin main` is refused with
+`GH013: Repository rule violations found`, and a PR whose `CI` check is red or
+still running cannot be merged from the UI, the CLI or the API.
+
 ---
 
 ## Project Structure
