@@ -99,7 +99,7 @@ export function toRecentMatch(match: HenrikStoredMatch): RecentMatch | null {
     shotsHit: head + body + leg,
     headshots: head,
     headshotPct: pct(head, head + body + leg),
-    damageDealt: match.stats.damage.dealt,
+    damageDealt: match.stats.damage.dealt ?? match.stats.damage.made ?? 0,
     score: match.stats.score,
   };
 }
