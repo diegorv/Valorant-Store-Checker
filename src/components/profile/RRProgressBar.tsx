@@ -19,7 +19,7 @@ export function RRProgressBar({ rankingInTier }: RRProgressBarProps) {
         className="w-full h-1.5 bg-void-surface angular-card-sm overflow-hidden"
       >
         <div
-          className="h-full bg-valorant-red transition-all duration-500"
+          className="h-full bg-brand transition-all duration-500"
           style={{ width: `${clampedRR}%` }}
           role="progressbar"
           aria-valuenow={clampedRR}

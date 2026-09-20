@@ -56,7 +56,7 @@ export function WishlistButton() {
           className={`w-5 h-5 transition-all ${
             hasStoreMatches
               ? "fill-[#F0B232] animate-pulse-glow"
-              : "fill-none stroke-zinc-400 group-hover:stroke-valorant-red"
+              : "fill-none stroke-zinc-400 group-hover:stroke-brand"
           }`}
           viewBox="0 0 24 24"
           strokeWidth="2"
@@ -69,7 +69,7 @@ export function WishlistButton() {
             className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full text-[10px] font-bold ${
               hasStoreMatches
                 ? "bg-[#F0B232] text-void-deep"
-                : "bg-valorant-red text-white"
+                : "bg-brand text-void-deep"
             }`}
           >
             {wishlistCount > 99 ? "99+" : wishlistCount}

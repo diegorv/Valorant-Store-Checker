@@ -7,9 +7,11 @@ Two ways to run Valorant Store Checker. For working on the code see [DEVELOPMENT
 | Where it runs | Your own server (VPS, home lab, NAS) | Vercel's serverless platform |
 | Where your Riot session lives | On your machine, in an encrypted SQLite volume | In a Turso database you attach |
 | Cache and rate limiting | Bundled Redis, no account needed | Upstash Redis from the Vercel Marketplace |
-| Setup | `docker compose up -d --build` | One click plus a few environment variables |
+| Setup | Two files and `docker compose up -d` | One click plus a few environment variables |
 
 - [Option 1: Self-host with Docker](#option-1-self-host-with-docker)
+  - [Run the prebuilt image](#run-the-prebuilt-image-recommended)
+  - [Build from source](#build-from-source)
 - [Option 2: Deploy to Vercel](#option-2-deploy-to-vercel)
   - [Turso database](#turso-database)
 - [Environment Variables](#environment-variables)
@@ -21,12 +23,16 @@ Two ways to run Valorant Store Checker. For working on the code see [DEVELOPMENT
 
 Run the app on your own server (VPS, home lab, NAS). Your Riot session cookies never leave infrastructure you control, and everything the app needs (Redis included) comes up with one command.
 
-1. **Clone and configure:**
+### Run the prebuilt image (recommended)
+
+Every push to `main` publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to [GitHub Container Registry](https://github.com/diegorv/Valorant-Store-Checker/pkgs/container/valorant-store-checker). You need two files and no checkout:
+
+1. **Get the compose file and the env template:**
 
    ```bash
-   git clone https://github.com/diegorv/Valorant-Store-Checker.git
-   cd Valorant-Store-Checker
-   cp .env.example .env
+   mkdir valorant-store-checker && cd valorant-store-checker
+   curl -fsSLO https://raw.githubusercontent.com/diegorv/Valorant-Store-Checker/main/docker-compose.yml
+   curl -fsSL  https://raw.githubusercontent.com/diegorv/Valorant-Store-Checker/main/.env.example -o .env
    ```
 
 2. **Generate the three secrets** and paste them into `.env`:
@@ -37,15 +43,41 @@ Run the app on your own server (VPS, home lab, NAS). Your Riot session cookies n
    openssl rand -hex 32      # SRH_TOKEN (bundled Redis REST proxy)
    ```
 
-3. **Build and start:**
+3. **Start:**
 
    ```bash
-   docker compose up -d --build
+   docker compose up -d
    ```
 
 4. Open [http://localhost:3000](http://localhost:3000). If port 3000 is taken, set `APP_PORT` in `.env`.
 
-What the Docker setup does:
+**Updating:** `docker compose pull && docker compose up -d` fetches the newest `main` build and restarts the app; sessions live in a volume and survive it.
+
+**Choosing a build:** the default is `ghcr.io/diegorv/valorant-store-checker:latest`, the latest commit on `main`. Every commit on `main` also gets a `sha-<short commit>` tag, so you can pin an exact build with `APP_IMAGE=ghcr.io/diegorv/valorant-store-checker:sha-<short commit>` in `.env`. Version tags (`v1.2.3` → `:1.2.3` and `:1.2`) are published whenever a release is tagged.
+
+### Build from source
+
+Same setup, but the image is built from your checkout. Useful when you have local changes or do not want to run a prebuilt binary.
+
+1. **Clone and configure:**
+
+   ```bash
+   git clone https://github.com/diegorv/Valorant-Store-Checker.git
+   cd Valorant-Store-Checker
+   cp .env.example .env
+   ```
+
+2. **Generate the three secrets** as above and paste them into `.env`.
+
+3. **Build and start**, adding `docker-compose.build.yml` on top of the base file:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+   ```
+
+   To make that the default, add `COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml` to `.env`; plain `docker compose up -d --build` then builds from source.
+
+### What the Docker setup does
 
 - Multi-stage build on `node:22-bookworm-slim` using Next.js standalone output (no dev dependencies, no Playwright browsers in the image).
 - Runs as an unprivileged user with a read-only root filesystem, all capabilities dropped and `no-new-privileges`.
@@ -63,18 +95,7 @@ What the Docker setup does:
 
 - Refuses to start if `SESSION_SECRET`, `ENCRYPTION_KEY` or `SRH_TOKEN` is missing, so cookies are never written to disk unencrypted.
 
-**Prebuilt image:** every push to `main` publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to GitHub Container Registry, and version tags (`v1.2.3`) publish `:1.2.3` / `:1.2`. To use it instead of building locally, create a `docker-compose.override.yml` next to `docker-compose.yml`:
-
-```yaml
-services:
-  app:
-    image: ghcr.io/diegorv/valorant-store-checker:latest
-    pull_policy: always
-```
-
-Then start with `docker compose up -d` (without `--build`).
-
-> **Tip:** the same setup works as a production-like local environment on your own machine — `docker compose up -d --build` gives you the app plus Redis, so caching and rate limiting behave the same as on a hosted deployment. Use `docker compose logs -f app` to follow the server logs (set `LOG_LEVEL=info` or `debug` in `.env` for more detail) and `docker compose down` to stop it.
+> **Tip:** the same setup works as a production-like local environment on your own machine — either path gives you the app plus Redis, so caching and rate limiting behave the same as on a hosted deployment. Use `docker compose logs -f app` to follow the server logs (set `LOG_LEVEL=info` or `debug` in `.env` for more detail) and `docker compose down` to stop it.
 
 > **Note:** the "Launch Riot Login" button opens the Riot login page in a new tab of _your own_ browser (client-side `window.open`); the server never launches a browser. Log in there and paste the redirect URL / cookies back into the form.
 

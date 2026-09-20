@@ -1,0 +1,10 @@
+# Build the app image from this checkout instead of pulling it from GHCR.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Or add `COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml` to .env and
+# plain `docker compose up -d --build` does the same.
+services:
+  app:
+    build: .
+    image: valorant-store-checker:local

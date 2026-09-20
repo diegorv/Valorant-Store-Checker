@@ -45,7 +45,7 @@ export default function GlobalError({
         <div className="flex gap-3 justify-center pt-2">
           <button
             onClick={reset}
-            className="angular-btn px-6 py-3 bg-valorant-red text-white font-display uppercase tracking-wider text-sm hover:bg-red-600 transition-colors"
+            className="angular-btn px-6 py-3 bg-brand text-void-deep font-display uppercase tracking-wider text-sm hover:bg-brand/85 transition-colors"
           >
             Try Again
           </button>

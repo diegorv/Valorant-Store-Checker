@@ -52,7 +52,7 @@ export function NightMarket({ nightMarket, wishlistSet, onWishlistToggle }: Nigh
             {/* Glow border (red for wishlisted, purple default) */}
             <div
               className="glow-border w-full"
-              style={{ "--glow-color": isWishlisted ? "var(--color-valorant-red)" : "rgba(168, 85, 247, 0.6)" } as React.CSSProperties}
+              style={{ "--glow-color": isWishlisted ? "var(--color-brand)" : "rgba(168, 85, 247, 0.6)" } as React.CSSProperties}
             >
               <div className="group relative w-full max-w-full angular-card bg-void-deep overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(168,85,247,0.2)]">
                 {/* Discount Badge */}
@@ -66,14 +66,14 @@ export function NightMarket({ nightMarket, wishlistSet, onWishlistToggle }: Nigh
                     onClick={() => onWishlistToggle(item.uuid, item)}
                     className={`absolute top-3 right-16 z-30 w-10 h-10 flex items-center justify-center rounded-full transition-all ${
                       isWishlisted
-                        ? "bg-valorant-red/20 hover:bg-valorant-red/30"
+                        ? "bg-brand/20 hover:bg-brand/30"
                         : "bg-void-deep/80 hover:bg-void-surface"
                     }`}
                     aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
                   >
                     <svg
                       className={`w-5 h-5 transition-all duration-300 ${
-                        isWishlisted ? "fill-valorant-red scale-110" : "fill-none stroke-zinc-400"
+                        isWishlisted ? "fill-brand scale-110" : "fill-none stroke-zinc-400"
                       }`}
                       viewBox="0 0 24 24"
                       strokeWidth="2"
@@ -85,7 +85,7 @@ export function NightMarket({ nightMarket, wishlistSet, onWishlistToggle }: Nigh
 
                 {/* Wishlisted Badge — top-left, above isSeen dot */}
                 {isWishlisted && (
-                  <div className="absolute top-3 left-3 z-20 px-3 py-1 bg-valorant-red text-white text-xs font-bold uppercase tracking-wider angular-card-sm animate-pulse-glow">
+                  <div className="absolute top-3 left-3 z-20 px-3 py-1 bg-brand text-void-deep text-xs font-bold uppercase tracking-wider angular-card-sm animate-pulse-glow">
                     Wishlisted
                   </div>
                 )}

@@ -69,10 +69,10 @@ export function PdfDownloadButton({ skins }: PdfDownloadButtonProps) {
           ${state === "error"
             ? "bg-red-900/30 border border-red-500/50 text-red-400"
             : state === "loading"
-              ? "bg-void-deep border border-valorant-red/30 text-zinc-500 cursor-wait"
+              ? "bg-void-deep border border-brand/30 text-zinc-500 cursor-wait"
               : skins.length === 0
                 ? "bg-void-deep border border-white/5 text-zinc-600 cursor-not-allowed"
-                : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light hover:shadow-[0_0_12px_rgba(255,70,85,0.15)]"
+                : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light hover:shadow-[0_0_12px_rgba(189,147,249,0.15)]"
           }
         `}
         title={

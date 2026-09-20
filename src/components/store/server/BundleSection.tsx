@@ -13,7 +13,7 @@ export async function BundleSection({ storeData }: BundleSectionProps) {
   return (
     <div className="mb-12">
       <FeaturedBundleCarousel bundles={bundles} />
-      <div className="h-[1px] bg-gradient-to-r from-valorant-red/50 via-white/10 to-transparent mt-8" />
+      <div className="h-[1px] bg-gradient-to-r from-brand/50 via-white/10 to-transparent mt-8" />
     </div>
   );
 }

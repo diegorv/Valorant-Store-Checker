@@ -127,7 +127,7 @@ export function WishlistPanel({
 
       {/* Panel */}
       <div
-        className="fixed top-0 right-0 h-full w-full md:w-[480px] bg-void-deep border-l border-valorant-red/30 z-60 shadow-2xl overflow-y-auto"
+        className="fixed top-0 right-0 h-full w-full md:w-[480px] bg-void-deep border-l border-brand/30 z-60 shadow-2xl overflow-y-auto"
         role="dialog"
         aria-labelledby="wishlist-panel-title"
         aria-modal="true"
@@ -148,7 +148,7 @@ export function WishlistPanel({
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-void-surface hover:bg-valorant-red/20 transition-all"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-void-surface hover:bg-brand/20 transition-all"
               aria-label="Close wishlist panel"
             >
               <svg
@@ -173,9 +173,9 @@ export function WishlistPanel({
           {loading && (
             <div className="flex items-center justify-center py-20">
               <div className="relative w-12 h-12">
-                <div className="absolute inset-0 border-2 border-valorant-red/20 angular-card-sm" />
+                <div className="absolute inset-0 border-2 border-brand/20 angular-card-sm" />
                 <div
-                  className="absolute inset-0 border-t-2 border-valorant-red animate-spin"
+                  className="absolute inset-0 border-t-2 border-brand animate-spin"
                   style={{ borderRadius: "50%" }}
                 />
               </div>

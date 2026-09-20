@@ -24,7 +24,7 @@ function DigitCard({ value }: { value: string }) {
 }
 
 function Separator() {
-  return <span className="text-valorant-red text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>;
+  return <span className="text-brand text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>;
 }
 
 export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puuid, account }: DailyStoreClientProps) {

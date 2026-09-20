@@ -98,7 +98,7 @@ export class SectionErrorBoundary extends Component<
 
           <button
             onClick={this.handleRetry}
-            className="angular-btn px-5 py-2.5 bg-valorant-red text-white font-display uppercase tracking-wider text-sm hover:bg-red-600 transition-colors"
+            className="angular-btn px-5 py-2.5 bg-brand text-void-deep font-display uppercase tracking-wider text-sm hover:bg-brand/85 transition-colors"
           >
             Retry Section
           </button>

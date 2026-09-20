@@ -118,8 +118,8 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="px-4 py-2 bg-valorant-red/20 border border-valorant-red angular-card-sm">
-                <span className="text-valorant-red font-bold text-lg">
+              <div className="px-4 py-2 bg-brand/20 border border-brand angular-card-sm">
+                <span className="text-brand font-bold text-lg">
                   {skins.length} Skins
                 </span>
               </div>

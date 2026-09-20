@@ -136,7 +136,7 @@ export function AccountSwitcher() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-valorant-red" />
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-brand" />
         Loading...
       </div>
     );
@@ -147,11 +147,11 @@ export function AccountSwitcher() {
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="angular-card group flex items-center gap-2 border border-white/10 bg-void-deep px-3 py-1.5 text-sm font-display uppercase tracking-wider text-white transition-all hover:border-valorant-red/50 hover:bg-void-surface"
+        className="angular-card group flex items-center gap-2 border border-white/10 bg-void-deep px-3 py-1.5 text-sm font-display uppercase tracking-wider text-white transition-all hover:border-brand/50 hover:bg-void-surface"
       >
         <div className="flex items-center gap-2">
           {/* Active indicator dot */}
-          <div className="h-2 w-2 rounded-full bg-valorant-red shadow-[0_0_8px_rgba(255,70,85,0.8)]" />
+          <div className="h-2 w-2 rounded-full bg-brand shadow-[0_0_8px_rgba(189,147,249,0.8)]" />
           <span className="max-w-[120px] truncate">{displayName}</span>
         </div>
         {/* Chevron icon */}
@@ -189,7 +189,7 @@ export function AccountSwitcher() {
                   disabled={account.isActive || switchingTo === account.puuid}
                   className={`relative w-full border-b border-white/5 px-4 py-3 text-left transition-all ${
                     account.isActive
-                      ? "border-l-2 border-l-valorant-red bg-void-surface/50"
+                      ? "border-l-2 border-l-brand bg-void-surface/50"
                       : "hover:bg-void-surface"
                   } ${
                     switchingTo === account.puuid
@@ -214,7 +214,7 @@ export function AccountSwitcher() {
                           {account.region}
                         </span>
                         {account.isActive && (
-                          <span className="text-xs font-medium uppercase text-valorant-red">
+                          <span className="text-xs font-medium uppercase text-brand">
                             Active
                           </span>
                         )}
@@ -248,7 +248,7 @@ export function AccountSwitcher() {
                   {/* Switching indicator */}
                   {switchingTo === account.puuid && (
                     <div className="absolute inset-0 flex items-center justify-center bg-void-deep/80">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-valorant-red" />
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-brand" />
                     </div>
                   )}
                 </button>
@@ -260,7 +260,7 @@ export function AccountSwitcher() {
           {accounts.length < 5 && (
             <button
               onClick={handleAddAccount}
-              className="w-full border-t border-white/10 px-4 py-3 text-left font-display text-sm uppercase tracking-wider text-valorant-red transition-all hover:bg-void-surface"
+              className="w-full border-t border-white/10 px-4 py-3 text-left font-display text-sm uppercase tracking-wider text-brand transition-all hover:bg-void-surface"
             >
               <div className="flex items-center gap-2">
                 <svg

@@ -67,11 +67,11 @@ function WishlistSkinCard({
           {/* Heart button (remove from wishlist) */}
           <button
             onClick={() => onRemove(item.skinUuid)}
-            className="absolute top-3 right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-valorant-red/20 hover:bg-valorant-red/30 transition-all"
+            className="absolute top-3 right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-brand/20 hover:bg-brand/30 transition-all"
             aria-label={`Remove ${item.displayName} from wishlist`}
           >
             <svg
-              className="w-5 h-5 fill-valorant-red scale-110"
+              className="w-5 h-5 fill-brand scale-110"
               viewBox="0 0 24 24"
               strokeWidth="2"
             >
@@ -151,7 +151,7 @@ function EmptyState() {
       </div>
       <Link
         href="/encyclopedia"
-        className="inline-block px-6 py-3 bg-valorant-red text-white text-sm font-bold uppercase angular-card-sm hover:bg-valorant-red/80 transition-colors"
+        className="inline-block px-6 py-3 bg-brand text-void-deep text-sm font-bold uppercase angular-card-sm hover:bg-brand/80 transition-colors"
       >
         Browse the Encyclopedia
       </Link>
@@ -170,7 +170,7 @@ export function WishlistGrid({ items, ownedSet, onRemove }: WishlistGridProps) {
       <div className="flex items-center justify-end">
         <Link
           href="/encyclopedia"
-          className="px-4 py-2 bg-valorant-red text-white text-sm font-bold uppercase angular-card-sm hover:bg-valorant-red/80 transition-colors"
+          className="px-4 py-2 bg-brand text-void-deep text-sm font-bold uppercase angular-card-sm hover:bg-brand/80 transition-colors"
         >
           Browse All
         </Link>

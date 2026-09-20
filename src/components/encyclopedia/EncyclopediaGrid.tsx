@@ -133,7 +133,7 @@ export function EncyclopediaGrid({
             placeholder="Search skins..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-void-deep border border-white/10 angular-card text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red/50 focus:ring-1 focus:ring-valorant-red/20 transition-all"
+            className="w-full pl-12 pr-4 py-3 bg-void-deep border border-white/10 angular-card text-light placeholder-zinc-500 focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/20 transition-all"
           />
         </div>
 
@@ -147,8 +147,8 @@ export function EncyclopediaGrid({
               onClick={() => setActiveWeapons([])}
               className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all stagger-entrance ${
                 activeWeapons.length === 0
-                  ? "bg-valorant-red text-white"
-                  : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
+                  ? "bg-brand text-void-deep"
+                  : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
               }`}
               style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
             >
@@ -160,8 +160,8 @@ export function EncyclopediaGrid({
                 onClick={() => toggleWeapon(weapon)}
                 className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all stagger-entrance ${
                   activeWeapons.includes(weapon)
-                    ? "bg-valorant-red text-white"
-                    : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
+                    ? "bg-brand text-void-deep"
+                    : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
                 }`}
                 style={weaponStaggerStyles[index] as React.CSSProperties}
               >
@@ -182,8 +182,8 @@ export function EncyclopediaGrid({
                 onClick={() => setActiveEditions([])}
                 className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all stagger-entrance ${
                   activeEditions.length === 0
-                    ? "bg-valorant-red text-white"
-                    : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
+                    ? "bg-brand text-void-deep"
+                    : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
                 }`}
                 style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
               >
@@ -250,7 +250,7 @@ export function EncyclopediaGrid({
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
-              className="text-xs text-valorant-red hover:text-valorant-red/80 uppercase tracking-wide font-semibold transition-colors"
+              className="text-xs text-brand hover:text-brand/80 uppercase tracking-wide font-semibold transition-colors"
             >
               Clear All Filters
             </button>
@@ -299,7 +299,7 @@ export function EncyclopediaGrid({
             <br />
             <button
               onClick={clearAllFilters}
-              className="text-valorant-red hover:underline mt-2"
+              className="text-brand hover:underline mt-2"
             >
               Clear filters
             </button>

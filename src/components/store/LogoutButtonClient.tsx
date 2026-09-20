@@ -18,7 +18,7 @@ export function LogoutButtonClient() {
     <button
       onClick={handleLogout}
       disabled={loggingOut}
-      className="angular-btn px-4 py-2 text-sm font-display uppercase tracking-wider text-zinc-400 bg-void-surface border border-white/5 hover:text-white hover:border-valorant-red/30 transition-all disabled:opacity-50"
+      className="angular-btn px-4 py-2 text-sm font-display uppercase tracking-wider text-zinc-400 bg-void-surface border border-white/5 hover:text-white hover:border-brand/30 transition-all disabled:opacity-50"
     >
       {loggingOut ? "Logging out..." : "Logout"}
     </button>

@@ -8,8 +8,8 @@
   <a href="https://github.com/diegorv/Valorant-Store-Checker/actions/workflows/ci.yml">
     <img src="https://github.com/diegorv/Valorant-Store-Checker/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
   </a>
-  <a href="https://vercel.com/new/clone?repository-url=https://github.com/diegorv/Valorant-Store-Checker">
-    <img src="https://vercel.com/button" alt="Deploy with Vercel">
+  <a href="https://github.com/diegorv/Valorant-Store-Checker/pkgs/container/valorant-store-checker">
+    <img src="https://github.com/diegorv/Valorant-Store-Checker/actions/workflows/docker.yml/badge.svg?branch=main" alt="Docker image">
   </a>
 </p>
 

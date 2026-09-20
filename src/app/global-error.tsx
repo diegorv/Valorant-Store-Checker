@@ -129,8 +129,8 @@ export default function GlobalError({
               onClick={() => unstable_retry()}
               style={{
                 padding: "0.75rem 1.5rem",
-                backgroundColor: "#FF4655",
-                color: "white",
+                backgroundColor: "#bd93f9",
+                color: "#0a1118",
                 border: "none",
                 cursor: "pointer",
                 textTransform: "uppercase",

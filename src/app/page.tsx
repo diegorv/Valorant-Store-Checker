@@ -22,9 +22,9 @@ export default async function Home() {
       />
 
       {/* Floating orbs */}
-      <div className="absolute top-1/4 -left-32 w-64 h-64 rounded-full bg-valorant-red/10 blur-3xl animate-subtle-float" />
+      <div className="absolute top-1/4 -left-32 w-64 h-64 rounded-full bg-brand/10 blur-3xl animate-subtle-float" />
       <div
-        className="absolute bottom-1/4 -right-32 w-80 h-80 rounded-full bg-valorant-red/5 blur-3xl animate-subtle-float"
+        className="absolute bottom-1/4 -right-32 w-80 h-80 rounded-full bg-brand/5 blur-3xl animate-subtle-float"
         style={{ animationDelay: "3s" }}
       />
 
@@ -38,12 +38,12 @@ export default async function Home() {
             Check Your
           </h1>
           <div className="flex items-center justify-center gap-4 mb-6">
-            {/* Red slash decoration */}
-            <div className="hidden sm:block w-12 h-[3px] bg-valorant-red -skew-x-12" />
-            <h1 className="font-display text-6xl sm:text-8xl font-bold uppercase tracking-wider text-valorant-red leading-[0.9]">
+            {/* Accent slash decoration */}
+            <div className="hidden sm:block w-12 h-[3px] bg-brand -skew-x-12" />
+            <h1 className="font-display text-6xl sm:text-8xl font-bold uppercase tracking-wider text-brand leading-[0.9]">
               Daily Store
             </h1>
-            <div className="hidden sm:block w-12 h-[3px] bg-valorant-red skew-x-12" />
+            <div className="hidden sm:block w-12 h-[3px] bg-brand skew-x-12" />
           </div>
         </div>
 
@@ -96,13 +96,13 @@ export default async function Home() {
         ].map((f, i) => (
           <div
             key={f.title}
-            className="stagger-entrance angular-card bg-[#1A202C]/60 border border-white/10 p-6 hover:border-valorant-red/40 hover:shadow-[0_0_20px_rgba(255,70,85,0.15)] transition-all duration-300"
+            className="stagger-entrance angular-card bg-[#1A202C]/60 border border-white/10 p-6 hover:border-brand/40 hover:shadow-[0_0_20px_rgba(189,147,249,0.15)] transition-all duration-300"
             style={
               { "--stagger-delay": `${300 + i * 100}ms` } as React.CSSProperties
             }
           >
             <div className="flex items-center gap-3 mb-2">
-              <f.icon className="w-6 h-6 text-valorant-red" />
+              <f.icon className="w-6 h-6 text-brand" />
               <h3 className="font-display text-xl uppercase font-semibold text-white">
                 {f.title}
               </h3>
