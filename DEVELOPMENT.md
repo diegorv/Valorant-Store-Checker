@@ -46,7 +46,7 @@ Working on Valorant Store Checker locally. For deploying it see [HOSTING.md](HOS
 
 5. Open [http://localhost:3000](http://localhost:3000).
 
-`pnpm dev` runs without Redis unless you set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, so every page load goes straight to Riot and HenrikDev. To test with caching and rate limiting, use the [Docker setup](HOSTING.md#option-2-self-host-with-docker) instead.
+`pnpm dev` runs without Redis unless you set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, so every page load goes straight to Riot and HenrikDev. To test with caching and rate limiting, use the [Docker setup](HOSTING.md#option-1-self-host-with-docker) instead.
 
 ## Running Tests
 
