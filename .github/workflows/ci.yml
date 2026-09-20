@@ -94,7 +94,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       # Playwright starts the server itself (pnpm dev:e2e, MSW-mocked) on its own
-      # port and never reuses an existing one — see README, "End-to-End Tests".
+      # port and never reuses an existing one — see DEVELOPMENT.md, "End-to-End Tests".
       - name: Run E2E tests
         run: pnpm test:e2e
         env:
