@@ -53,7 +53,7 @@ vi.mock("@/lib/logger", () => ({
 // Import module under test AFTER mocks are declared
 // ---------------------------------------------------------------------------
 
-const { getProfileData, clearProfileCache } = await import("@/lib/profile-cache");
+const { getProfileData, clearProfileCache, PROFILE_CACHE_VERSION } = await import("@/lib/profile-cache");
 
 // ---------------------------------------------------------------------------
 // Helper factories
@@ -70,8 +70,9 @@ function makeTokens(puuid = "test-puuid", region = "na") {
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
-function makeCacheEntry(data: ProfileData, cachedAt: number = Date.now() - 60000) {
-  return JSON.stringify({ data, cachedAt });
+function makeCacheEntry(data: ProfileData, cachedAt: number = Date.now() - 60000, version: number | null = PROFILE_CACHE_VERSION) {
+  // null: an entry written before versioning existed (no `version` key at all)
+  return JSON.stringify(version === null ? { data, cachedAt } : { data, cachedAt, version });
 }
 
 function makeMockLoadout(overrides: Partial<{ PlayerCardID: string; PlayerTitleID: string; AccountLevel: number; HideAccountLevel: boolean }> = {}) {
@@ -406,5 +407,54 @@ describe("getProfileData — competitive extras from Henrik MMR", () => {
     expect(result.actHistory).toBeUndefined();
     expect(result.peakSeason).toBeUndefined();
     expect(result.leaderboardRank).toBeUndefined();
+  });
+});
+
+
+describe("getProfileData — cache entry version", () => {
+  const OLD_PROFILE: ProfileData = { playerCardId: "card-old", fromCache: false, partial: false, henrikFailed: false };
+
+  beforeEach(() => {
+    mockGetPlayerLoadout.mockResolvedValue(makeMockLoadout());
+    mockGetHenrikAccount.mockResolvedValue(makeMockAccount());
+    mockGetHenrikMMR.mockResolvedValue(makeMockMMR());
+    mockGetPlayerCardByUuid.mockResolvedValue({ smallArt: "", wideArt: "", largeArt: "" });
+    mockGetPlayerTitleByUuid.mockResolvedValue({ titleText: "Test Title" });
+    mockGetCompetitiveTierIconByTier.mockResolvedValue("https://ranked.icon");
+  });
+
+  it.each([
+    { name: "no version key (written before versioning)", version: null },
+    { name: "an older version number", version: PROFILE_CACHE_VERSION - 1 },
+  ])("a fresh entry with $name is refetched and rewritten with the current version", async ({ version }) => {
+    mockRedisGet.mockResolvedValue(makeCacheEntry(OLD_PROFILE, Date.now() - 60_000, version));
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(mockGetHenrikMMR).toHaveBeenCalled();
+    expect(result.fromCache).toBe(false);
+    const written = JSON.parse(mockRedisSet.mock.calls[0]![1] as string);
+    expect(written.version).toBe(PROFILE_CACHE_VERSION);
+  });
+
+  it("a fresh entry with the current version is served from cache", async () => {
+    mockRedisGet.mockResolvedValue(makeCacheEntry(OLD_PROFILE));
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(mockGetHenrikMMR).not.toHaveBeenCalled();
+    expect(result.fromCache).toBe(true);
+  });
+
+  it("an older-version entry still serves as the stale fallback when every source fails", async () => {
+    mockRedisGet.mockResolvedValue(makeCacheEntry(OLD_PROFILE, Date.now() - 60_000, null));
+    mockGetPlayerLoadout.mockResolvedValue(null);
+    mockGetHenrikAccount.mockResolvedValue(null);
+    mockGetHenrikMMR.mockResolvedValue(null);
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(result.fromCache).toBe(true);
+    expect(result.playerCardId).toBe("card-old");
   });
 });
