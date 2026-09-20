@@ -51,6 +51,18 @@ describe("toRecentMatch", () => {
   });
 });
 
+describe("toRecentMatch — damage field spelling", () => {
+  it("reads `made` when `dealt` is absent, and 0 when neither is there", () => {
+    const withMade = stored();
+    withMade.stats.damage = { made: 2750, received: 1000 };
+    expect(toRecentMatch(withMade)?.damageDealt).toBe(2750);
+
+    const withNeither = stored();
+    withNeither.stats.damage = { received: 1000 };
+    expect(toRecentMatch(withNeither)?.damageDealt).toBe(0);
+  });
+});
+
 describe("toRecentMatches", () => {
   it("sorts newest first", () => {
     const list = toRecentMatches([

@@ -114,6 +114,21 @@ describe("HenrikMMRSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("stored match: accepts damage.made (stored-matches spelling) and damage.dealt alike", async () => {
+    const { HenrikStoredMatchSchema } = await import("@/lib/schemas/henrik");
+    const base = {
+      meta: { id: "m", map: { id: null, name: "Ascent" }, mode: "Competitive", started_at: "2026-09-20T10:00:00Z", season: null },
+      stats: {
+        team: "Red", character: { id: "a", name: "Jett" }, tier: null, score: 1, kills: 1, deaths: 1, assists: 1,
+        shots: { head: 1, body: 1, leg: 1 }, damage: { made: 100, received: 50 },
+      },
+      teams: { red: 13, blue: 7 },
+    };
+    expect(HenrikStoredMatchSchema.safeParse(base).success).toBe(true);
+    const dealt = { ...base, stats: { ...base.stats, damage: { dealt: 100, received: 50 } } };
+    expect(HenrikStoredMatchSchema.safeParse(dealt).success).toBe(true);
+  });
+
   it("seasonal acts, peak rr and leaderboard placement: parse when present, optional when absent", () => {
     const withExtras = {
       current: {

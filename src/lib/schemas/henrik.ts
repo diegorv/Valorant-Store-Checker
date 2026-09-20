@@ -66,20 +66,26 @@ export const HenrikStoredMatchSchema = z.object({
   meta: z.object({
     id: z.string(),
     map: z.object({ id: z.string().nullable().optional(), name: z.string() }),
-    mode: z.string().optional(),
+    mode: z.string().nullable().optional(),
     started_at: z.string(),
-    season: HenrikSeasonRefSchema.optional(),
+    season: HenrikSeasonRefSchema.nullable().optional(),
   }),
   stats: z.object({
     team: z.string(),
     character: z.object({ id: z.string().nullable().optional(), name: z.string() }),
-    tier: z.number().optional(),
+    tier: z.number().nullable().optional(),
     score: z.number(),
     kills: z.number(),
     deaths: z.number(),
     assists: z.number(),
     shots: z.object({ head: z.number(), body: z.number(), leg: z.number() }),
-    damage: z.object({ dealt: z.number(), received: z.number() }),
+    // Henrik spells damage dealt `made` on the stored-matches endpoint and
+    // `dealt` on the match endpoints; accept either.
+    damage: z.object({
+      dealt: z.number().optional(),
+      made: z.number().optional(),
+      received: z.number().nullable().optional(),
+    }),
   }),
   teams: z.object({ red: z.number().nullable(), blue: z.number().nullable() }),
 });

@@ -115,8 +115,9 @@ const PROFILE_CACHE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
  *   1: original shape
  *   2: peakSeason, gamesNeededForRating, leaderboardRank, actHistory
  *   3: recentMatches, matchStats
+ *   4: stored-match schema accepts damage.made (v3 entries may hold an empty list)
  */
-export const PROFILE_CACHE_VERSION = 3;
+export const PROFILE_CACHE_VERSION = 4;
 
 /** How many competitive matches to keep on the profile (and aggregate over) */
 const RECENT_MATCHES_LIMIT = 10;
