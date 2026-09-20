@@ -6,8 +6,9 @@
  */
 
 import { StoreTokens, fetchWithShardFallback } from "@/lib/riot-store";
-import { getWeaponSkinsByLevelUuids, getContentTiers } from "@/lib/valorant-api";
-import { InventoryData, OwnedSkin, EditionCategory } from "@/types/inventory";
+import { getWeaponSkins, getWeaponSkinsByLevelUuids, getContentTiers } from "@/lib/valorant-api";
+import type { ValorantWeaponSkin, ValorantContentTier } from "@/types/riot";
+import { InventoryData, CollectionSkin, EditionCategory } from "@/types/inventory";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { ITEM_TYPE_WEAPON_SKIN } from "@/lib/constants";
 import { createLogger } from "./logger";
@@ -94,9 +95,71 @@ export function clearInventoryCache(puuid: string): void {
   inventoryCache.delete(puuid);
 }
 
+/** Tier colour the UI uses for a content tier, matching the encyclopedia. */
+function tierColorFor(tier: ValorantContentTier | null): string {
+  if (!tier) return DEFAULT_TIER_COLOR;
+  return TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`;
+}
+
 /**
- * Fetches player's owned weapon skins from Riot PD entitlements API
- * and hydrates them with asset data from Valorant-API
+ * Builds the collection entry for a catalog skin. Used for owned skins
+ * (from entitlements) and for the rest of the catalog alike, so both render
+ * through the same card.
+ */
+function toCollectionSkin(
+  skin: ValorantWeaponSkin,
+  tierMap: Map<string, ValorantContentTier>,
+  owned: boolean,
+): { entry: CollectionSkin; tier: ValorantContentTier | null } {
+  const tier = skin.contentTierUuid
+    ? tierMap.get(skin.contentTierUuid.toLowerCase()) ?? null
+    : null;
+  const tierColor = tierColorFor(tier);
+
+  // Best video: the highest level that has one
+  let streamedVideo: string | null = null;
+  for (let i = (skin.levels?.length ?? 0) - 1; i >= 0; i--) {
+    const level = skin.levels[i];
+    if (level?.streamedVideo) {
+      streamedVideo = level.streamedVideo;
+      break;
+    }
+  }
+
+  return {
+    tier,
+    entry: {
+      uuid: skin.uuid,
+      displayName: skin.displayName,
+      owned,
+      displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
+      streamedVideo,
+      wallpaper: skin.wallpaper,
+      blurDataURL: getBlurDataURL(skin.wallpaper),
+      tierUuid: tier?.uuid || null,
+      tierName: tier?.displayName || null,
+      tierColor,
+      chromaCount: skin.chromas.length,
+      levelCount: skin.levels.length,
+      assetPath: skin.assetPath,
+      weaponName: extractWeaponName(skin.displayName),
+    },
+  };
+}
+
+/** Weapon first, then skin name — the order both lists are served in. */
+function byWeaponThenName(a: CollectionSkin, b: CollectionSkin): number {
+  if (a.weaponName !== b.weaponName) return a.weaponName.localeCompare(b.weaponName);
+  return a.displayName.localeCompare(b.displayName);
+}
+
+/**
+ * Fetches player's owned weapon skins from Riot PD entitlements API,
+ * hydrates them with asset data from Valorant-API, and pairs them with the
+ * rest of the catalog (`unownedSkins`) so the collection view can tell the
+ * two apart. Skins without a content tier (weapon defaults, "Random
+ * Favorite") are not something you can own, so they are left out of the
+ * catalog side.
  */
 export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData> {
   const now = Date.now();
@@ -137,32 +200,23 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
   // Extract skin UUIDs
   const skinUuids = entitlements.map((e) => e.ItemID);
 
-  if (skinUuids.length === 0) {
-    const emptyData: InventoryData = {
-      skins: [],
-      totalCount: 0,
-      weaponCategories: [],
-      editionCategories: [],
-    };
-    cacheInventory(tokens.puuid, emptyData, now);
-    return emptyData;
-  }
-
   // Batch hydrate with Valorant-API data
   // Note: Riot entitlements API returns skin LEVEL UUIDs, not parent skin UUIDs
   log.debug(`Hydrating ${skinUuids.length} skin level entitlements from Valorant-API`);
-  const skinsMap = await getWeaponSkinsByLevelUuids(skinUuids);
+  const [skinsMap, allTiers, catalog] = await Promise.all([
+    skinUuids.length > 0 ? getWeaponSkinsByLevelUuids(skinUuids) : Promise.resolve(new Map<string, ValorantWeaponSkin>()),
+    // Pre-fetch ALL content tiers once — eliminates N serial getContentTierByUuid() calls
+    getContentTiers(),
+    getWeaponSkins(),
+  ]);
 
   log.info(`Matched ${skinsMap.size} entitlements to skins from Valorant-API`);
 
-  // Build OwnedSkin objects (deduplicate since multiple levels map to same skin)
-  const ownedSkins: OwnedSkin[] = [];
+  // Build owned entries (deduplicate since multiple levels map to same skin)
+  const ownedSkins: CollectionSkin[] = [];
   const weaponNamesSet = new Set<string>();
   const editionMap = new Map<string, string>(); // tierName → tierColor
   const seenSkinUuids = new Set<string>();
-
-  // Pre-fetch ALL content tiers once — eliminates N serial getContentTierByUuid() calls
-  const allTiers = await getContentTiers();
   const tierMap = new Map(allTiers.map((t) => [t.uuid.toLowerCase(), t]));
 
   for (const uuid of skinUuids) {
@@ -187,6 +241,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
         ownedSkins.push({
           uuid,
           displayName: "New Skin",
+          owned: true,
           displayIcon: "",
           streamedVideo: null,
           wallpaper: null,
@@ -206,61 +261,26 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
     // Mark this parent skin as seen
     seenSkinUuids.add(skin.uuid.toLowerCase());
 
-    // Get tier information — O(1) lookup via pre-fetched Map (avoids N+1 serial fetches)
-    const tier = skin.contentTierUuid
-      ? tierMap.get(skin.contentTierUuid.toLowerCase()) ?? null
-      : null;
-
-    const tierColor = tier
-      ? (TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`)
-      : DEFAULT_TIER_COLOR;
-
-    // Extract weapon name
-    const weaponName = extractWeaponName(skin.displayName);
-    weaponNamesSet.add(weaponName);
-
-    // Track edition/tier category
-    if (tier?.displayName) {
-      editionMap.set(tier.displayName, tierColor);
-    }
-
-    // Get best video from levels
-    let streamedVideo: string | null = null;
-    if (skin.levels && skin.levels.length > 0) {
-      for (let i = skin.levels.length - 1; i >= 0; i--) {
-        const level = skin.levels[i];
-        if (!level) continue;
-        if (level.streamedVideo) {
-          streamedVideo = level.streamedVideo;
-          break;
-        }
-      }
-    }
-
-    ownedSkins.push({
-      uuid: skin.uuid,
-      displayName: skin.displayName,
-      displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
-      streamedVideo,
-      wallpaper: skin.wallpaper,
-      blurDataURL: getBlurDataURL(skin.wallpaper),
-      tierUuid: tier?.uuid || null,
-      tierName: tier?.displayName || null,
-      tierColor,
-      chromaCount: skin.chromas.length,
-      levelCount: skin.levels.length,
-      assetPath: skin.assetPath,
-      weaponName,
-    });
+    const { entry, tier } = toCollectionSkin(skin, tierMap, true);
+    weaponNamesSet.add(entry.weaponName);
+    if (tier?.displayName) editionMap.set(tier.displayName, entry.tierColor);
+    ownedSkins.push(entry);
   }
 
-  // Sort by weapon name, then by skin name
-  ownedSkins.sort((a, b) => {
-    if (a.weaponName !== b.weaponName) {
-      return a.weaponName.localeCompare(b.weaponName);
-    }
-    return a.displayName.localeCompare(b.displayName);
-  });
+  // The rest of the catalog: everything ownable that is not in the entitlements
+  const unownedSkins: CollectionSkin[] = [];
+  for (const skin of catalog) {
+    if (!skin.contentTierUuid) continue; // weapon defaults, "Random Favorite Skin"
+    if (seenSkinUuids.has(skin.uuid.toLowerCase())) continue;
+
+    const { entry, tier } = toCollectionSkin(skin, tierMap, false);
+    weaponNamesSet.add(entry.weaponName);
+    if (tier?.displayName) editionMap.set(tier.displayName, entry.tierColor);
+    unownedSkins.push(entry);
+  }
+
+  ownedSkins.sort(byWeaponThenName);
+  unownedSkins.sort(byWeaponThenName);
 
   // Sort weapon categories alphabetically
   const weaponCategories = Array.from(weaponNamesSet).sort();
@@ -280,6 +300,8 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
   const inventoryData: InventoryData = {
     skins: ownedSkins,
     totalCount: ownedSkins.length,
+    unownedSkins,
+    catalogCount: ownedSkins.length + unownedSkins.length,
     weaponCategories,
     editionCategories,
   };
@@ -291,7 +313,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
   const { setCachedInventory } = await import("./inventory-cache");
   setCachedInventory(tokens.puuid, inventoryData);
 
-  log.info(`Successfully hydrated ${ownedSkins.length} skins across ${weaponCategories.length} weapon types`);
+  log.info(`Successfully hydrated ${ownedSkins.length} owned + ${unownedSkins.length} unowned skins across ${weaponCategories.length} weapon types`);
 
   return inventoryData;
 }

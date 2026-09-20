@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { OwnedSkin } from "@/types/inventory";
+import type { CollectionSkin } from "@/types/inventory";
 
 interface PdfDownloadButtonProps {
-  skins: OwnedSkin[];
+  skins: CollectionSkin[];
 }
 
 type ButtonState = "idle" | "loading" | "error";

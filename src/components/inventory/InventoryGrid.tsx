@@ -5,23 +5,47 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import Image from "next/image";
 import { InventoryCard } from "./InventoryCard";
 import { PdfDownloadButton } from "./PdfDownloadButton";
-import type { OwnedSkin, EditionCategory } from "@/types/inventory";
+import type { CollectionSkin, EditionCategory } from "@/types/inventory";
 import { getEditionIconPath } from "@/lib/edition-icons";
 
 interface InventoryGridProps {
-  skins: OwnedSkin[];
+  /** Skins in the player's entitlements */
+  skins: CollectionSkin[];
+  /** The rest of the catalog; empty when the page did not ask for it */
+  unownedSkins?: CollectionSkin[];
   weaponCategories: string[];
   editionCategories: EditionCategory[];
 }
 
-export function InventoryGrid({ skins, weaponCategories, editionCategories }: InventoryGridProps) {
+type Ownership = "owned" | "unowned" | "all";
+
+const OWNERSHIP_OPTIONS: { value: Ownership; label: string }[] = [
+  { value: "owned", label: "Owned" },
+  { value: "unowned", label: "Not owned" },
+  { value: "all", label: "All" },
+];
+
+export function InventoryGrid({ skins, unownedSkins = [], weaponCategories, editionCategories }: InventoryGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeWeapons, setActiveWeapons] = useState<string[]>([]);
   const [activeEditions, setActiveEditions] = useState<string[]>([]);
+  const [ownership, setOwnership] = useState<Ownership>("owned");
+
+  // Which side of the collection is on screen. "All" interleaves by weapon,
+  // owned first within each weapon, so the gaps are visible next to what you have.
+  const scopedSkins = useMemo(() => {
+    if (ownership === "owned") return skins;
+    if (ownership === "unowned") return unownedSkins;
+    return [...skins, ...unownedSkins].sort((a, b) => {
+      if (a.weaponName !== b.weaponName) return a.weaponName.localeCompare(b.weaponName);
+      if (a.owned !== b.owned) return a.owned ? -1 : 1;
+      return a.displayName.localeCompare(b.displayName);
+    });
+  }, [ownership, skins, unownedSkins]);
 
   // Filter skins based on search query, weapon filter, and edition filter
   const filteredSkins = useMemo(() => {
-    let result = skins;
+    let result = scopedSkins;
 
     // Apply weapon filter
     if (activeWeapons.length > 0) {
@@ -42,7 +66,10 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
     }
 
     return result;
-  }, [skins, activeWeapons, activeEditions, searchQuery]);
+  }, [scopedSkins, activeWeapons, activeEditions, searchQuery]);
+
+  // The PDF is "my collection": only what is owned, within the current filters
+  const ownedInView = useMemo(() => filteredSkins.filter((skin) => skin.owned), [filteredSkins]);
 
   const COLUMNS_PER_ROW = 4;
   const rowCount = Math.ceil(filteredSkins.length / COLUMNS_PER_ROW);
@@ -107,6 +134,37 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
             className="w-full pl-12 pr-4 py-3 bg-void-deep border border-white/10 angular-card text-light placeholder-zinc-500 focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/20 transition-all"
           />
         </div>
+
+        {/* Ownership Filter Pills — only when the catalog side was loaded */}
+        {unownedSkins.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Show</span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Ownership">
+              {OWNERSHIP_OPTIONS.map((option) => {
+                const count =
+                  option.value === "owned" ? skins.length
+                  : option.value === "unowned" ? unownedSkins.length
+                  : skins.length + unownedSkins.length;
+                const isSelected = ownership === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => setOwnership(option.value)}
+                    aria-pressed={isSelected}
+                    className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all flex items-center gap-2 ${
+                      isSelected
+                        ? "bg-brand text-void-deep"
+                        : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
+                    }`}
+                  >
+                    {option.label}
+                    <span className={`text-xs font-mono ${isSelected ? "text-void-deep/70" : "text-zinc-500"}`}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Weapon Filter Pills */}
         <div className="space-y-2">
@@ -206,10 +264,11 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
         <div className="flex items-center justify-between">
           <p className="text-sm text-zinc-400">
             Showing <span className="text-light font-semibold">{filteredSkins.length}</span> of{" "}
-            <span className="text-light font-semibold">{skins.length}</span> skins
+            <span className="text-light font-semibold">{scopedSkins.length}</span>{" "}
+            {ownership === "owned" ? "owned" : ownership === "unowned" ? "not owned" : ""} skins
           </p>
           <div className="flex items-center gap-3">
-            <PdfDownloadButton skins={filteredSkins} />
+            {ownedInView.length > 0 && <PdfDownloadButton skins={ownedInView} />}
             {hasActiveFilters && (
               <button
                 onClick={clearAllFilters}
@@ -251,7 +310,7 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 h-full">
                     {rowSkins.map((skin) => (
-                      <InventoryCard key={skin.uuid} skin={skin} />
+                      <InventoryCard key={skin.uuid} skin={skin} showOwnedBadge={ownership === "all"} />
                     ))}
                   </div>
                 </div>

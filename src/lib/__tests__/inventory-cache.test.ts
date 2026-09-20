@@ -11,6 +11,14 @@ vi.mock("@/lib/riot-store", () => ({
   fetchWithShardFallback: (...args: unknown[]) => mockFetchWithShardFallback(...args),
 }));
 
+// getOwnedSkins always loads the catalog side (tiers + every skin) so the
+// collection can show what is not owned; keep that off the network here.
+vi.mock("@/lib/valorant-api", () => ({
+  getWeaponSkins: vi.fn(async () => []),
+  getContentTiers: vi.fn(async () => []),
+  getWeaponSkinsByLevelUuids: vi.fn(async () => new Map()),
+}));
+
 vi.mock("@/lib/logger", () => ({
   createLogger: () => ({
     debug: vi.fn(),
@@ -24,7 +32,7 @@ vi.mock("@/lib/logger", () => ({
 const MAX_CACHE_ENTRIES = 50;
 
 function makeInventory(totalCount = 0): InventoryData {
-  return { skins: [], totalCount, weaponCategories: [], editionCategories: [] };
+  return { skins: [], totalCount, unownedSkins: [], catalogCount: totalCount, weaponCategories: [], editionCategories: [] };
 }
 
 // Each test gets a fresh module instance so the module-level Map starts empty.

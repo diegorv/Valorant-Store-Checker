@@ -6,6 +6,36 @@ import type { InventoryData } from "@/types/inventory";
 
 type LoadingState = "idle" | "loading" | "success" | "error";
 
+/**
+ * "owned / total" with a progress bar. Falls back to the plain owned count
+ * when the catalog size is unknown (older cached payloads).
+ */
+function CollectionProgress({ owned, total }: { owned: number; total: number }) {
+  const pct = total > 0 ? Math.round((owned / total) * 100) : 0;
+  return (
+    <div
+      className="px-4 py-2 bg-brand/20 border border-brand angular-card-sm min-w-[220px]"
+      role="group"
+      aria-label={total > 0 ? `${owned} of ${total} skins owned, ${pct} percent` : `${owned} skins owned`}
+    >
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="text-brand font-bold text-lg leading-none">
+          {owned}
+          {total > 0 && <span className="text-sm font-semibold text-brand/70"> / {total}</span>}
+        </span>
+        <span className="text-[10px] font-display uppercase tracking-wider text-zinc-400">
+          {total > 0 ? `${pct}% owned` : "Skins owned"}
+        </span>
+      </div>
+      {total > 0 && (
+        <div className="mt-2 h-1 w-full bg-white/10 overflow-hidden" aria-hidden="true">
+          <div className="h-full bg-brand transition-[width] duration-500" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InventoryPage() {
   const [state, setState] = useState<LoadingState>("idle");
   const [inventoryData, setInventoryData] = useState<InventoryData | null>(null);
@@ -18,7 +48,8 @@ export default function InventoryPage() {
     setFromCache(false);
 
     try {
-      const url = forceRefresh ? "/api/inventory?refresh=true" : "/api/inventory";
+      // catalog=true: also get the skins we don't own, so the grid can tell both apart
+      const url = forceRefresh ? "/api/inventory?catalog=true&refresh=true" : "/api/inventory?catalog=true";
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -65,11 +96,7 @@ export default function InventoryPage() {
             
             <div className="flex items-center gap-3">
               {inventoryData && (
-                <div className="px-4 py-2 bg-brand/20 border border-brand angular-card-sm">
-                  <span className="text-brand font-bold text-lg">
-                    {inventoryData.totalCount} Skins
-                  </span>
-                </div>
+                <CollectionProgress owned={inventoryData.totalCount} total={inventoryData.catalogCount ?? 0} />
               )}
               {state !== "loading" && (
                 <button
@@ -131,6 +158,7 @@ export default function InventoryPage() {
         {state === "success" && inventoryData && (
           <InventoryGrid
             skins={inventoryData.skins}
+            unownedSkins={inventoryData.unownedSkins ?? []}
             weaponCategories={inventoryData.weaponCategories}
             editionCategories={inventoryData.editionCategories}
           />

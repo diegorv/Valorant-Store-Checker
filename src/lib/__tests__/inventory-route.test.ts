@@ -85,3 +85,42 @@ describe("GET /api/inventory — upstream failure response", () => {
     );
   });
 });
+
+
+describe("GET /api/inventory — catalog side is opt-in", () => {
+  const OWNED = { uuid: "owned-1", owned: true };
+  const UNOWNED = { uuid: "unowned-1", owned: false };
+  const DATA = {
+    skins: [OWNED],
+    totalCount: 1,
+    unownedSkins: [UNOWNED],
+    catalogCount: 2,
+    weaponCategories: ["Vandal"],
+    editionCategories: [],
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { getSessionWithRefresh } = await import("@/lib/session");
+    vi.mocked(getSessionWithRefresh).mockResolvedValue(SESSION);
+    const { getOwnedSkins } = await import("@/lib/riot-inventory");
+    vi.mocked(getOwnedSkins).mockResolvedValue(DATA as never);
+  });
+
+  it("without catalog=true: owned skins only, unownedSkins stripped, counts kept", async () => {
+    const response = await GET(new NextRequest("http://localhost/api/inventory"));
+    const body = await response.json();
+
+    expect(body.skins).toEqual([OWNED]);
+    expect(body.unownedSkins).toEqual([]);
+    expect(body.catalogCount).toBe(2);
+  });
+
+  it("with catalog=true: the unowned side is included", async () => {
+    const response = await GET(new NextRequest("http://localhost/api/inventory?catalog=true"));
+    const body = await response.json();
+
+    expect(body.skins).toEqual([OWNED]);
+    expect(body.unownedSkins).toEqual([UNOWNED]);
+  });
+});
