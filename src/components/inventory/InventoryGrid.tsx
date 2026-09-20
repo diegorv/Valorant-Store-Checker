@@ -7,6 +7,7 @@ import { InventoryCard } from "./InventoryCard";
 import { PdfDownloadButton } from "./PdfDownloadButton";
 import type { CollectionSkin, EditionCategory } from "@/types/inventory";
 import { getEditionIconPath } from "@/lib/edition-icons";
+import { compareSkins, groupWeaponsByClass, COLLECTION_SORTS, type CollectionSort } from "@/lib/collection-sort";
 
 interface InventoryGridProps {
   /** Skins in the player's entitlements */
@@ -30,18 +31,21 @@ export function InventoryGrid({ skins, unownedSkins = [], weaponCategories, edit
   const [activeWeapons, setActiveWeapons] = useState<string[]>([]);
   const [activeEditions, setActiveEditions] = useState<string[]>([]);
   const [ownership, setOwnership] = useState<Ownership>("owned");
+  const [sort, setSort] = useState<CollectionSort>("weapon");
 
-  // Which side of the collection is on screen. "All" interleaves by weapon,
-  // owned first within each weapon, so the gaps are visible next to what you have.
+  // Which side of the collection is on screen, in the chosen order. The
+  // default follows the armory (sidearms → … → melee); in a mixed view owned
+  // skins come first within each weapon, so the gaps sit next to what you have.
   const scopedSkins = useMemo(() => {
-    if (ownership === "owned") return skins;
-    if (ownership === "unowned") return unownedSkins;
-    return [...skins, ...unownedSkins].sort((a, b) => {
-      if (a.weaponName !== b.weaponName) return a.weaponName.localeCompare(b.weaponName);
-      if (a.owned !== b.owned) return a.owned ? -1 : 1;
-      return a.displayName.localeCompare(b.displayName);
-    });
-  }, [ownership, skins, unownedSkins]);
+    const list =
+      ownership === "owned" ? skins
+      : ownership === "unowned" ? unownedSkins
+      : [...skins, ...unownedSkins];
+    return [...list].sort(compareSkins(sort));
+  }, [ownership, sort, skins, unownedSkins]);
+
+  // Weapon pills grouped the way the armory is, not alphabetically
+  const weaponGroups = useMemo(() => groupWeaponsByClass(weaponCategories), [weaponCategories]);
 
   // Filter skins based on search query, weapon filter, and edition filter
   const filteredSkins = useMemo(() => {
@@ -87,6 +91,15 @@ export function InventoryGrid({ skins, unownedSkins = [], weaponCategories, edit
         ? prev.filter((w) => w !== weapon)
         : [...prev, weapon]
     );
+  };
+
+  /** Class label click: select the whole class, or clear it if every weapon in it is already selected */
+  const toggleWeaponClass = (weapons: readonly string[]) => {
+    setActiveWeapons((prev) => {
+      const allSelected = weapons.every((w) => prev.includes(w));
+      const without = prev.filter((w) => !weapons.includes(w));
+      return allSelected ? without : [...without, ...weapons];
+    });
   };
 
   const toggleEdition = (edition: string) => {
@@ -166,33 +179,75 @@ export function InventoryGrid({ skins, unownedSkins = [], weaponCategories, edit
           </div>
         )}
 
-        {/* Weapon Filter Pills */}
+        {/* Sort */}
         <div className="space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Weapon</span>
-          <div className="flex flex-wrap gap-2 max-h-[130px] overflow-y-auto pr-2 custom-scrollbar">
-            <button
-              onClick={() => setActiveWeapons([])}
-              className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
-                activeWeapons.length === 0
-                  ? "bg-brand text-void-deep"
-                  : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
-              }`}
-            >
-              All
-            </button>
-            {weaponCategories.map((weapon) => (
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Sort by</span>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Sort by">
+            {COLLECTION_SORTS.map((option) => {
+              const isSelected = sort === option.value;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => setSort(option.value)}
+                  aria-pressed={isSelected}
+                  className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
+                    isSelected
+                      ? "bg-brand text-void-deep"
+                      : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Weapon Filter Pills — grouped by class, in armory order */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Weapon</span>
+            {activeWeapons.length > 0 && (
               <button
-                key={weapon}
-                onClick={() => toggleWeapon(weapon)}
-                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
-                  activeWeapons.includes(weapon)
-                    ? "bg-brand text-void-deep"
-                    : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
-                }`}
+                onClick={() => setActiveWeapons([])}
+                className="text-xs text-brand hover:text-brand/80 uppercase tracking-wide font-semibold transition-colors"
               >
-                {weapon}
+                All weapons
               </button>
-            ))}
+            )}
+          </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-3 max-h-[170px] overflow-y-auto pr-2 custom-scrollbar">
+            {weaponGroups.map((group) => {
+              const classSelected = group.weapons.every((w) => activeWeapons.includes(w));
+              return (
+                <div key={group.name} className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => toggleWeaponClass(group.weapons)}
+                    aria-pressed={classSelected}
+                    title={classSelected ? `Clear ${group.name}` : `Select all ${group.name}`}
+                    className={`text-[10px] font-display uppercase tracking-widest px-1.5 py-0.5 border-l-2 transition-colors ${
+                      classSelected ? "border-brand text-brand" : "border-white/20 text-zinc-500 hover:text-brand hover:border-brand/60"
+                    }`}
+                  >
+                    {group.name}
+                  </button>
+                  {group.weapons.map((weapon) => (
+                    <button
+                      key={weapon}
+                      onClick={() => toggleWeapon(weapon)}
+                      aria-pressed={activeWeapons.includes(weapon)}
+                      className={`px-3 py-1.5 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
+                        activeWeapons.includes(weapon)
+                          ? "bg-brand text-void-deep"
+                          : "bg-void-deep border border-white/10 text-zinc-400 hover:border-brand/50 hover:text-light"
+                      }`}
+                    >
+                      {weapon}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
 
