@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="public/icons/Valorant_Store_Checker.webp" width="750" alt="Valorant Store Checker">
-</p>
-
 <h1 align="center">Valorant Store Checker</h1>
 
 <p align="center">
@@ -67,7 +63,7 @@ This section is for anyone deciding whether to trust the app with their Riot acc
 
 ## Getting Started
 
-- **Host it yourself** → [HOSTING.md](HOSTING.md): environment variables, one-click Vercel deploy, Docker Compose setup and Turso.
+- **Host it yourself** → [HOSTING.md](HOSTING.md): self-hosting with Docker Compose, deploying to Vercel, and the environment variables reference.
 - **Work on the code** → [DEVELOPMENT.md](DEVELOPMENT.md): local setup, the unit, end-to-end and mutation test suites, and the project layout.
 - **Understand how it works** → [ARCHITECTURE.md](ARCHITECTURE.md): tech stack, request flow, authentication, security measures and the patterns the code relies on.
 
