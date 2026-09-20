@@ -13,7 +13,7 @@
 import { env } from "./env";
 import { createLogger } from "./logger";
 import { parseWithLog } from "@/lib/schemas/parse";
-import { HenrikAccountSchema, HenrikMMRSchema, HenrikSeasonalSchema } from "@/lib/schemas/henrik";
+import { HenrikAccountSchema, HenrikMMRSchema, HenrikSeasonalSchema, HenrikStoredMatchSchema, type HenrikStoredMatch } from "@/lib/schemas/henrik";
 import { toHenrikRegion } from "@/lib/region-utils";
 
 const log = createLogger("henrik-api");
@@ -96,6 +96,7 @@ interface CacheEntry<T> {
 
 const accountCache = new Map<string, CacheEntry<HenrikAccount>>();
 const mmrCache = new Map<string, CacheEntry<HenrikMMRData>>();
+const matchesCache = new Map<string, CacheEntry<HenrikStoredMatch[]>>();
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -210,6 +211,64 @@ export async function getHenrikMMR(puuid: string, region: string): Promise<Henri
 }
 
 /**
+ * Fetch the player's most recent competitive matches from Henrik's stored
+ * match history (lightweight per-player summaries, not full match details).
+ * Results are cached for 5 minutes. On failure, stale cache is returned.
+ * Never throws — returns null if both live fetch and stale cache are unavailable.
+ * Matches are validated one by one: an entry with an unexpected shape is
+ * dropped with a log line instead of failing the whole list.
+ */
+export async function getHenrikStoredMatches(
+  puuid: string,
+  region: string,
+  size = 20,
+): Promise<HenrikStoredMatch[] | null> {
+  // Keyed by size too: a caller asking for 20 must not get a cached list of 10
+  const cacheKey = `${puuid}:${size}`;
+  const cached = matchesCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+    log.info("Returning cached Henrik matches for PUUID:", puuid.substring(0, 8));
+    return cached.data;
+  }
+
+  const henrikRegion = toHenrikRegion(region);
+  const params = new URLSearchParams({ mode: "competitive", size: String(size) });
+
+  try {
+    const response = await fetch(
+      `${HENRIK_API_BASE}/valorant/v1/by-puuid/stored-matches/${henrikRegion}/${puuid}?${params}`,
+      {
+        cache: "no-store",
+        headers: henrikHeaders(),
+        signal: AbortSignal.timeout(15_000),
+      }
+    );
+
+    if (!response.ok) {
+      log.warn("Henrik stored-matches fetch returned HTTP", response.status, "for PUUID:", puuid.substring(0, 8));
+      return cached?.data ?? null;
+    }
+
+    const json = await response.json();
+    if (!Array.isArray(json.data)) {
+      log.warn("Henrik stored-matches: unexpected payload shape for PUUID:", puuid.substring(0, 8));
+      return cached?.data ?? null;
+    }
+    const matches: HenrikStoredMatch[] = json.data.flatMap((entry: unknown) => {
+      const parsed = HenrikStoredMatchSchema.safeParse(entry);
+      if (!parsed.success) log.warn("Dropping malformed stored match:", parsed.error.issues[0]?.path.join("."), parsed.error.issues[0]?.message);
+      return parsed.success ? [parsed.data] : [];
+    });
+    matchesCache.set(cacheKey, { data: matches, fetchedAt: Date.now() });
+    log.info(`Henrik stored-matches fetched: ${matches.length} of ${json.data.length} entries kept for PUUID:`, puuid.substring(0, 8));
+    return matches;
+  } catch (error) {
+    log.error("Henrik stored-matches fetch network error for PUUID:", puuid.substring(0, 8), error);
+    return cached?.data ?? null;
+  }
+}
+
+/**
  * Clear the Henrik in-memory cache.
  * If puuid is provided, removes only that player's entries.
  * If no puuid is provided, clears all cached data.
@@ -218,8 +277,12 @@ export function clearHenrikCache(puuid?: string): void {
   if (puuid) {
     accountCache.delete(puuid);
     mmrCache.delete(puuid);
+    for (const key of matchesCache.keys()) {
+      if (key.startsWith(`${puuid}:`)) matchesCache.delete(key);
+    }
   } else {
     accountCache.clear();
     mmrCache.clear();
+    matchesCache.clear();
   }
 }

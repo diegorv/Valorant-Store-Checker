@@ -26,9 +26,11 @@ vi.mock("@/lib/riot-loadout", () => ({
 
 const mockGetHenrikAccount = vi.fn();
 const mockGetHenrikMMR = vi.fn();
+const mockGetHenrikStoredMatches = vi.fn();
 vi.mock("@/lib/henrik-api", () => ({
   getHenrikAccount: (...args: unknown[]) => mockGetHenrikAccount(...args),
   getHenrikMMR: (...args: unknown[]) => mockGetHenrikMMR(...args),
+  getHenrikStoredMatches: (...args: unknown[]) => mockGetHenrikStoredMatches(...args),
 }));
 
 const mockGetPlayerCardByUuid = vi.fn();
@@ -120,6 +122,7 @@ function makeMockMMR(overrides: Partial<{ current: object; peak: object; seasona
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetHenrikStoredMatches.mockResolvedValue(null);
   mockRedisSet.mockResolvedValue("OK");
   mockRedisDel.mockResolvedValue(1);
   mockRedisScan.mockResolvedValue(["0", []]);
@@ -456,5 +459,48 @@ describe("getProfileData — cache entry version", () => {
 
     expect(result.fromCache).toBe(true);
     expect(result.playerCardId).toBe("card-old");
+  });
+});
+
+
+describe("getProfileData — recent competitive matches", () => {
+  beforeEach(() => {
+    mockRedisGet.mockResolvedValue(null);
+    mockGetPlayerLoadout.mockResolvedValue(makeMockLoadout());
+    mockGetHenrikAccount.mockResolvedValue(makeMockAccount());
+    mockGetHenrikMMR.mockResolvedValue(makeMockMMR());
+    mockGetPlayerCardByUuid.mockResolvedValue({ smallArt: "", wideArt: "", largeArt: "" });
+    mockGetPlayerTitleByUuid.mockResolvedValue({ titleText: "Test Title" });
+    mockGetCompetitiveTierIconByTier.mockResolvedValue("https://ranked.icon");
+  });
+
+  it("shapes and aggregates stored matches into recentMatches and matchStats", async () => {
+    mockGetHenrikStoredMatches.mockResolvedValue([
+      {
+        meta: { id: "m1", map: { id: "map", name: "Bind" }, started_at: "2026-09-20T10:00:00Z" },
+        stats: {
+          team: "Blue", character: { id: "agent-1", name: "Reyna" }, score: 5000,
+          kills: 22, deaths: 11, assists: 4, shots: { head: 20, body: 20, leg: 0 }, damage: { dealt: 3300, received: 2000 },
+        },
+        teams: { red: 9, blue: 13 },
+      },
+    ]);
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(result.recentMatches).toHaveLength(1);
+    expect(result.recentMatches![0]).toMatchObject({ id: "m1", map: "Bind", agent: "Reyna", result: "win", roundsWon: 13, roundsLost: 9, headshotPct: 50 });
+    expect(result.matchStats).toMatchObject({ games: 1, wins: 1, winRate: 100, kd: 2, form: ["win"] });
+    expect(result.henrikFailed).toBe(false);
+  });
+
+  it("a matches failure leaves the fields undefined and does not mark Henrik as failed", async () => {
+    mockGetHenrikStoredMatches.mockRejectedValue(new Error("boom"));
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(result.recentMatches).toBeUndefined();
+    expect(result.matchStats).toBeUndefined();
+    expect(result.henrikFailed).toBe(false);
   });
 });

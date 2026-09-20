@@ -20,7 +20,8 @@
 import { redis } from "@/lib/redis-client";
 import { StoreTokens } from "./riot-store";
 import { getPlayerLoadout } from "./riot-loadout";
-import { getHenrikAccount, getHenrikMMR, type HenrikMMRData } from "./henrik-api";
+import { getHenrikAccount, getHenrikMMR, getHenrikStoredMatches, type HenrikMMRData } from "./henrik-api";
+import { toRecentMatches, aggregateMatchStats, type RecentMatch, type MatchStats } from "./match-stats";
 import { compareSeasonShortDesc } from "./season";
 import { getPlayerCardByUuid, getPlayerTitleByUuid, getCompetitiveTierIconByTier } from "./valorant-api";
 import { createLogger } from "./logger";
@@ -60,6 +61,8 @@ export interface ProfileData {
   gamesNeededForRating?: number;    // placement games left before a rank is assigned
   leaderboardRank?: number;         // Immortal+ leaderboard position, when placed
   actHistory?: ActRecord[];         // competitive history per act, newest first
+  recentMatches?: RecentMatch[];    // last competitive matches, newest first
+  matchStats?: MatchStats;          // aggregated over recentMatches
 
   // Metadata
   fromCache: boolean;
@@ -111,8 +114,12 @@ const PROFILE_CACHE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
  * every user's entry has expired.
  *   1: original shape
  *   2: peakSeason, gamesNeededForRating, leaderboardRank, actHistory
+ *   3: recentMatches, matchStats
  */
-export const PROFILE_CACHE_VERSION = 2;
+export const PROFILE_CACHE_VERSION = 3;
+
+/** How many competitive matches to keep on the profile (and aggregate over) */
+const RECENT_MATCHES_LIMIT = 10;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -168,15 +175,22 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
   }
 
   // Tier 1: Fetch all sources in parallel; individual failures are tolerated
-  const [loadoutResult, accountResult, mmrResult] = await Promise.allSettled([
+  const [loadoutResult, accountResult, mmrResult, matchesResult] = await Promise.allSettled([
     getPlayerLoadout(tokens),
     getHenrikAccount(tokens.puuid, region),
     getHenrikMMR(tokens.puuid, region),
+    getHenrikStoredMatches(tokens.puuid, region, RECENT_MATCHES_LIMIT),
   ]);
 
   const loadout = loadoutResult.status === "fulfilled" ? loadoutResult.value : null;
   const account = accountResult.status === "fulfilled" ? accountResult.value : null;
   const mmr = mmrResult.status === "fulfilled" ? mmrResult.value : null;
+  // Matches are a bonus: their failure never marks Henrik as failed
+  const storedMatches = matchesResult.status === "fulfilled" ? matchesResult.value : null;
+  if (matchesResult.status === "rejected") {
+    log.warn("Henrik stored-matches fetch failed:", matchesResult.reason);
+  }
+  const recentMatches = storedMatches ? toRecentMatches(storedMatches).slice(0, RECENT_MATCHES_LIMIT) : undefined;
 
   if (loadoutResult.status === "rejected") {
     log.warn("Riot loadout fetch failed:", loadoutResult.reason);
@@ -237,6 +251,8 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     gamesNeededForRating: mmr?.current?.games_needed_for_rating,
     leaderboardRank: mmr?.current?.leaderboard_placement?.rank ?? undefined,
     actHistory: toActHistory(mmr?.seasonal),
+    recentMatches,
+    matchStats: recentMatches ? aggregateMatchStats(recentMatches) ?? undefined : undefined,
 
     // Metadata — partial if we got nothing useful from either primary sources
     fromCache: false,

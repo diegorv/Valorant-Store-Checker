@@ -56,6 +56,36 @@ export const HenrikSeasonalSchema = z.object({
   end_rr: z.number().nullable().optional(),
 });
 
+/**
+ * One entry of Henrik /v1/by-puuid/stored-matches. Only the fields the
+ * profile uses are declared; the rest of the payload is dropped on parse,
+ * which keeps the in-memory cache small. Parsed entry by entry (see
+ * henrik-api.ts) so one odd match cannot drop the list.
+ */
+export const HenrikStoredMatchSchema = z.object({
+  meta: z.object({
+    id: z.string(),
+    map: z.object({ id: z.string().nullable().optional(), name: z.string() }),
+    mode: z.string().optional(),
+    started_at: z.string(),
+    season: HenrikSeasonRefSchema.optional(),
+  }),
+  stats: z.object({
+    team: z.string(),
+    character: z.object({ id: z.string().nullable().optional(), name: z.string() }),
+    tier: z.number().optional(),
+    score: z.number(),
+    kills: z.number(),
+    deaths: z.number(),
+    assists: z.number(),
+    shots: z.object({ head: z.number(), body: z.number(), leg: z.number() }),
+    damage: z.object({ dealt: z.number(), received: z.number() }),
+  }),
+  teams: z.object({ red: z.number().nullable(), blue: z.number().nullable() }),
+});
+
+export type HenrikStoredMatch = z.infer<typeof HenrikStoredMatchSchema>;
+
 export const HenrikMMRSchema = z.object({
   current: HenrikMMRCurrentSchema.optional(),
   peak: HenrikMMRPeakSchema.optional(),
