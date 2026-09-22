@@ -15,7 +15,6 @@ export default defineConfig({
       include: ["src/lib/**/*.ts", "src/app/api/**/*.ts", "src/middleware.ts"],
       exclude: [
         "src/lib/__tests__/**",
-        "src/lib/db.ts",
         "**/*.d.ts",
         // Infrastructure files that require external services or are not unit-testable
         "src/lib/env.ts",
@@ -41,7 +40,6 @@ export default defineConfig({
         "src/lib/session-crypto.ts",
         "src/lib/inventory-cache.ts",
         // Files with very low branch coverage that drag down project average
-        // (require browser IndexedDB or complex integration scenarios)
         "src/lib/riot-reauth.ts",
       ],
       thresholds: {

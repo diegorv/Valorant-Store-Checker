@@ -17,7 +17,6 @@ vi.mock("@/lib/logger", () => ({
 
 const {
   recordStoreRotation,
-  importStoreRotations,
   getStoreRotations,
   deleteStoreRotation,
   rotationDate,
@@ -128,22 +127,6 @@ describe("getStoreRotations", () => {
 
     expect(await getStoreRotations(["p1", "p2"], 2)).toHaveLength(2);
     expect(await getStoreRotations([])).toEqual([]);
-  });
-});
-
-describe("importStoreRotations", () => {
-  it("adds browser-logged days and skips the ones the server already has", async () => {
-    await recordStoreRotation("p1", [item("server")], EXPIRES, undefined, new Date("2026-09-20T12:00:00Z"));
-
-    const added = await importStoreRotations([
-      { puuid: "p1", date: "2026-09-20", timestamp: 1, expiresAt: 2, items: [{ uuid: "browser", displayName: "x", cost: 1, tierName: null, tierColor: "#000" }] },
-      { puuid: "p1", date: "2026-09-10", timestamp: 1, expiresAt: 2, gameName: "Old", items: [{ uuid: "old", displayName: "x", cost: 1, tierName: null, tierColor: "#000" }] },
-    ]);
-
-    expect(added).toBe(1);
-    const rows = await getStoreRotations(["p1"]);
-    expect(rows.map((r) => [r.date, r.items[0]!.uuid])).toEqual([["2026-09-20", "server"], ["2026-09-10", "old"]]);
-    expect(await importStoreRotations([])).toBe(0);
   });
 });
 

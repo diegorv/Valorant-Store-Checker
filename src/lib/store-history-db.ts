@@ -2,9 +2,7 @@
  * Store history — server side
  *
  * One row per account and day in LibSQL (the same database that holds
- * sessions and wishlists), written when the store page renders. Replaces
- * the browser-only IndexedDB log, which was lost with the browser and only
- * covered the device it was written on.
+ * sessions and wishlists), written when the store page renders.
  */
 
 import { initSessionDb } from "./session-db";
@@ -71,16 +69,10 @@ function toRotation(row: Row): StoreRotation {
   };
 }
 
-/** Import only: a day the server already has is left alone. */
-const INSERT_SQL = `
-  INSERT OR IGNORE INTO store_rotations (puuid, date, timestamp, expires_at, game_name, tag_line, items)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-`.trim();
-
 /**
- * Recording: a later render of the same day replaces what it finds. The first
- * render can hold a skin the catalog did not know yet ("New Skin"), so the row
- * has to stay correctable; `timestamp` keeps pointing at the first sighting.
+ * A later render of the same day replaces what it finds: the first render can
+ * hold a skin the catalog did not know yet ("New Skin"), so the row has to
+ * stay correctable. `timestamp` keeps pointing at the first sighting.
  */
 const UPSERT_SQL = `
   INSERT INTO store_rotations (puuid, date, timestamp, expires_at, game_name, tag_line, items)
@@ -121,33 +113,6 @@ export async function recordStoreRotation(
   const written = result.rowsAffected > 0;
   if (written) log.info("Recorded store rotation for PUUID:", puuid.substring(0, 8));
   return written;
-}
-
-/**
- * Imports rotations the browser logged before the server kept history.
- * Rows for a day that already exists are ignored. Returns how many were added.
- */
-export async function importStoreRotations(rotations: StoreRotation[]): Promise<number> {
-  if (rotations.length === 0) return 0;
-  const db = await initSessionDb();
-  const results = await db.batch(
-    rotations.map((r) => ({
-      sql: INSERT_SQL,
-      args: [
-        r.puuid,
-        r.date,
-        r.timestamp,
-        r.expiresAt,
-        r.gameName ?? null,
-        r.tagLine ?? null,
-        JSON.stringify(r.items),
-      ],
-    })),
-    "write",
-  );
-  const added = results.reduce((n, r) => n + r.rowsAffected, 0);
-  log.info(`Imported ${added} of ${rotations.length} browser-logged rotations`);
-  return added;
 }
 
 /** Rotations for the given accounts, newest first. */

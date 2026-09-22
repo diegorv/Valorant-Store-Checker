@@ -15,8 +15,7 @@ export interface HistoryStoreItem {
 }
 
 /**
- * Store rotation record stored in IndexedDB
- * Represents a single day's store offerings for one account
+ * Store rotation record, one per account and day
  */
 export interface StoreRotation {
   id?: number; // Auto-increment primary key
