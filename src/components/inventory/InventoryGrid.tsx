@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useLayoutEffect, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Image from "next/image";
 import { InventoryCard } from "./InventoryCard";
@@ -8,6 +8,7 @@ import { PdfDownloadButton } from "./PdfDownloadButton";
 import type { CollectionSkin, EditionCategory } from "@/types/inventory";
 import { getEditionIconPath } from "@/lib/edition-icons";
 import { compareSkins, groupWeaponsByClass, COLLECTION_SORTS, type CollectionSort } from "@/lib/collection-sort";
+import { columnsForWidth, GRID_GAP } from "@/lib/collection-layout";
 
 interface InventoryGridProps {
   /** Skins in the player's entitlements */
@@ -75,15 +76,36 @@ export function InventoryGrid({ skins, unownedSkins = [], weaponCategories, edit
   // The PDF is "my collection": only what is owned, within the current filters
   const ownedInView = useMemo(() => filteredSkins.filter((skin) => skin.owned), [filteredSkins]);
 
-  const COLUMNS_PER_ROW = 4;
-  const rowCount = Math.ceil(filteredSkins.length / COLUMNS_PER_ROW);
+  // The grid is virtualized by row, so the slice of skins per row must match
+  // the columns the grid draws. Both come from the container's real width:
+  // a phone gets one column, a desktop four. Rows are measured after they
+  // render, since a card is taller when it has the whole width to itself.
+  const hasResults = filteredSkins.length > 0;
   const parentRef = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(1);
+  useLayoutEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const update = () => setColumns(columnsForWidth(el.clientWidth));
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasResults]);
+
+  const rowCount = Math.ceil(filteredSkins.length / columns);
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 280,
+    estimateSize: () => 300,
+    gap: GRID_GAP,
     overscan: 3,
   });
+  // A different column count reshuffles every row, so cached heights are stale
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [columns, rowVirtualizer]);
 
   const toggleWeapon = (weapon: string) => {
     setActiveWeapons((prev) =>
@@ -349,21 +371,26 @@ export function InventoryGrid({ skins, unownedSkins = [], weaponCategories, edit
             }}
           >
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const startIdx = virtualRow.index * COLUMNS_PER_ROW;
-              const rowSkins = filteredSkins.slice(startIdx, startIdx + COLUMNS_PER_ROW);
+              const startIdx = virtualRow.index * columns;
+              const rowSkins = filteredSkins.slice(startIdx, startIdx + columns);
               return (
                 <div
                   key={virtualRow.key}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  data-testid="collection-row"
                   style={{
                     position: "absolute",
                     top: 0,
                     left: 0,
                     width: "100%",
-                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 h-full">
+                  <div
+                    className="grid gap-6"
+                    style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+                  >
                     {rowSkins.map((skin) => (
                       <InventoryCard key={skin.uuid} skin={skin} showOwnedBadge={ownership === "all"} />
                     ))}

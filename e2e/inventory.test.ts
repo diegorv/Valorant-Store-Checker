@@ -57,3 +57,45 @@ test.describe("Collection Page", () => {
     ]);
   });
 });
+
+test.describe("Collection page on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("cards stack one per row without overlapping", async ({ page }) => {
+    await page.goto("/login");
+    const mockAuthUrl = "https://playvalorant.com/opt_in#access_token=mock_access_token&id_token=mock_id_token";
+    await page.getByLabel("Paste URL or Cookies").fill(mockAuthUrl);
+    await page.getByRole("button", { name: "Complete Login" }).click();
+    await expect(page).toHaveURL(/\/store/, { timeout: 10000 });
+
+    await page.goto("/inventory");
+    await expect(page.getByText("Showing 2 of 2 owned skins")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: "All 3" }).click();
+    await expect(page.getByText("Showing 3 of 3 skins")).toBeVisible();
+
+    // The grid is virtualized: each row is positioned by the virtualizer and
+    // holds one card per column. On a narrow screen every card must get a row
+    // of its own — same left edge, each starting below the previous one — and
+    // stay inside that row's box. Rows sized for the desktop layout let the
+    // cards spill out and the next row is drawn over them.
+    const boxes = await page.getByRole("article").evaluateAll((cards) =>
+      cards.map((card) => {
+        const r = card.getBoundingClientRect();
+        // card → grid → virtual row
+        const row = card.parentElement!.parentElement!.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, left: r.left, width: r.width, rowTop: row.top, rowBottom: row.bottom };
+      }),
+    );
+    expect(boxes).toHaveLength(3);
+    boxes.sort((a, b) => a.top - b.top);
+    const first = boxes[0]!;
+    boxes.forEach((box, i) => {
+      expect(box.top).toBeGreaterThanOrEqual(box.rowTop - 1);
+      expect(box.bottom).toBeLessThanOrEqual(box.rowBottom + 1);
+      if (i === 0) return;
+      expect(box.left).toBeCloseTo(first.left, 0);
+      expect(box.width).toBeCloseTo(first.width, 0);
+      expect(box.top).toBeGreaterThanOrEqual(boxes[i - 1]!.bottom);
+    });
+  });
+});
