@@ -19,8 +19,8 @@ describe("importLegacyRotations", () => {
 
     const done = await importLegacyRotations([rotation("a", 0, 1), rotation("b", 0, 2)], new Set(), post);
 
-    expect(post).toHaveBeenCalledTimes(1);
-    expect(post.mock.calls[0]![0]).toEqual([
+    expect(post).toHaveBeenCalledTimes(2); // one account at a time
+    expect(post.mock.calls.flatMap(([batch]) => batch)).toEqual([
       expect.not.objectContaining({ id: expect.anything() }),
       expect.not.objectContaining({ id: expect.anything() }),
     ]);
@@ -44,7 +44,7 @@ describe("importLegacyRotations", () => {
     expect(done).toEqual(["a"]);
   });
 
-  it("splits a log larger than one request into batches", async () => {
+  it("splits one account's log into batches of IMPORT_BATCH_SIZE", async () => {
     const rotations = Array.from({ length: IMPORT_BATCH_SIZE + 5 }, (_, day) => rotation("a", day));
     const post = vi.fn().mockResolvedValue({ skippedPuuids: [] });
 
@@ -54,11 +54,33 @@ describe("importLegacyRotations", () => {
     expect(done).toEqual(["a"]);
   });
 
-  it("returns null when any batch fails, so nothing is remembered", async () => {
-    const rotations = Array.from({ length: IMPORT_BATCH_SIZE + 1 }, (_, day) => rotation("a", day));
-    const post = vi.fn().mockResolvedValueOnce({ skippedPuuids: [] }).mockResolvedValueOnce(null);
+  it("never mixes two accounts in one batch", async () => {
+    const post = vi.fn().mockResolvedValue({ skippedPuuids: [] });
 
-    expect(await importLegacyRotations(rotations, new Set(), post)).toBeNull();
+    await importLegacyRotations([rotation("a", 0), rotation("b", 1), rotation("a", 2)], new Set(), post);
+
+    expect(post.mock.calls.map(([batch]) => batch.map((r: StoreRotation) => r.puuid))).toEqual([
+      ["a", "a"],
+      ["b"],
+    ]);
+  });
+
+  it("keeps importing the other accounts when one account's batch fails", async () => {
+    const post = vi.fn().mockImplementation((batch: StoreRotation[]) =>
+      Promise.resolve(batch[0]!.puuid === "a" ? null : { skippedPuuids: [] })
+    );
+
+    const done = await importLegacyRotations([rotation("a", 0), rotation("b", 0)], new Set(), post);
+
+    expect(done).toEqual(["b"]); // "a" is retried on a later visit
+  });
+
+  it("stops sending an account after one of its batches fails", async () => {
+    const rotations = Array.from({ length: IMPORT_BATCH_SIZE + 1 }, (_, day) => rotation("a", day));
+    const post = vi.fn().mockResolvedValue(null);
+
+    expect(await importLegacyRotations(rotations, new Set(), post)).toEqual([]);
+    expect(post).toHaveBeenCalledTimes(1);
   });
 
   it("sends nothing when every account is already imported", async () => {

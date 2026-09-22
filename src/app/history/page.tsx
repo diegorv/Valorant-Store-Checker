@@ -38,7 +38,7 @@ async function importBrowserHistory(): Promise<void> {
     });
     return response.ok ? ((await response.json()) as ImportResponse) : null;
   });
-  if (!done || done.length === 0) return; // a failed batch leaves everything to retry next visit
+  if (done.length === 0) return; // nothing accepted: a later visit retries those accounts
   try {
     window.localStorage.setItem(IMPORTED_KEY, JSON.stringify([...imported, ...done]));
   } catch {

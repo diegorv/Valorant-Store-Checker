@@ -14,27 +14,36 @@ export interface ImportResponse {
 }
 
 /**
- * Sends the rotations of every account not yet imported, in batches.
- * Returns the accounts now fully imported (to remember, so they are not sent
- * again), or null when a batch failed and nothing should be remembered.
- * Accounts the server skipped are left out so a later visit, once they are
- * linked, retries them.
+ * Sends the rotations of every account not yet imported, one account at a
+ * time and in batches of IMPORT_BATCH_SIZE. Returns the accounts that are now
+ * fully imported, for the caller to remember so they are not sent again.
+ *
+ * An account is left out when the server skipped it (not linked in this
+ * browser yet) or when one of its batches failed, so a later visit retries
+ * it — and one account's failure never holds back the others.
  */
 export async function importLegacyRotations(
   rotations: StoreRotation[],
   alreadyImported: ReadonlySet<string>,
   post: (batch: Omit<StoreRotation, "id">[]) => Promise<ImportResponse | null>
-): Promise<string[] | null> {
-  const pending = rotations
-    .filter((r) => !alreadyImported.has(r.puuid))
-    .map(({ id: _id, ...rotation }) => rotation);
-
-  const skipped = new Set<string>();
-  for (let i = 0; i < pending.length; i += IMPORT_BATCH_SIZE) {
-    const response = await post(pending.slice(i, i + IMPORT_BATCH_SIZE));
-    if (!response) return null;
-    for (const puuid of response.skippedPuuids) skipped.add(puuid);
+): Promise<string[]> {
+  const byAccount = new Map<string, Omit<StoreRotation, "id">[]>();
+  for (const { id: _id, ...rotation } of rotations) {
+    if (alreadyImported.has(rotation.puuid)) continue;
+    const pending = byAccount.get(rotation.puuid) ?? [];
+    pending.push(rotation);
+    byAccount.set(rotation.puuid, pending);
   }
 
-  return [...new Set(pending.map((r) => r.puuid))].filter((puuid) => !skipped.has(puuid));
+  const imported: string[] = [];
+  for (const [puuid, pending] of byAccount) {
+    let accepted = true;
+    for (let i = 0; i < pending.length && accepted; i += IMPORT_BATCH_SIZE) {
+      const response = await post(pending.slice(i, i + IMPORT_BATCH_SIZE));
+      accepted = response !== null && !response.skippedPuuids.includes(puuid);
+    }
+    if (accepted) imported.push(puuid);
+  }
+
+  return imported;
 }
