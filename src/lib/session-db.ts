@@ -20,7 +20,7 @@ import fs from 'fs';
 
 import type { SessionData } from './schemas/session';
 import { createLogger } from "./logger";
-import { CREATE_STORE_ROTATIONS_TABLE, CREATE_STORE_ROTATIONS_INDEX } from './store-history-db';
+import { CREATE_STORE_ROTATIONS_TABLE, CREATE_STORE_ROTATIONS_INDEX } from './store-history-schema';
 const log = createLogger("session-db");
 
 // ---------------------------------------------------------------------------

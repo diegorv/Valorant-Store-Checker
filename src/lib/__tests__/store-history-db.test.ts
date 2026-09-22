@@ -21,9 +21,11 @@ const {
   getStoreRotations,
   deleteStoreRotation,
   rotationDate,
-  CREATE_STORE_ROTATIONS_TABLE,
-  CREATE_STORE_ROTATIONS_INDEX,
 } = await import("@/lib/store-history-db");
+
+const { CREATE_STORE_ROTATIONS_TABLE, CREATE_STORE_ROTATIONS_INDEX } = await import(
+  "@/lib/store-history-schema"
+);
 
 function item(uuid: string, cost = 1775): StoreItem {
   return {
