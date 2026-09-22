@@ -42,7 +42,6 @@ export default defineConfig({
         "src/lib/inventory-cache.ts",
         // Files with very low branch coverage that drag down project average
         // (require browser IndexedDB or complex integration scenarios)
-        "src/lib/store-history.ts",
         "src/lib/riot-reauth.ts",
       ],
       thresholds: {
