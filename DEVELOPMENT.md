@@ -193,7 +193,7 @@ src/
 │       ├── inventory/        # Owned weapon skins
 │       ├── wishlist/         # Bookmark management
 │       ├── accounts/         # Multi-account list + switch
-│       └── history/          # Store rotation history: list, delete, one-time browser import
+│       └── history/          # Store rotation history: list, delete
 ├── components/
 │   ├── auth/                 # LoginForm
 │   ├── store/                # StoreCard, StoreGrid, DailyStore, Bundle, NightMarket, Wallet, LoadingSkeleton, SectionErrorBoundary
@@ -228,7 +228,6 @@ src/
     ├── store-service.ts      # Store page orchestration (storefront + catalog)
     ├── store-cache.ts        # Store cache (Redis, until the next rotation)
     ├── store-history-db.ts   # Store rotation history (LibSQL; written when /store renders)
-    ├── store-history.ts      # Legacy browser history (Dexie), read once for the import
     ├── profile-cache.ts      # Profile cache (Redis, 6h)
     ├── inventory-cache.ts    # Inventory cache (in-memory, 24h)
     ├── wishlist.ts           # Wishlist persistence (LibSQL)

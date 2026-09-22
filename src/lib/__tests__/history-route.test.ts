@@ -18,14 +18,12 @@ vi.mock("@/lib/accounts", () => ({
 
 const mockGetStoreRotations = vi.fn();
 const mockDeleteStoreRotation = vi.fn();
-const mockImportStoreRotations = vi.fn();
 vi.mock("@/lib/store-history-db", () => ({
   getStoreRotations: (...args: unknown[]) => mockGetStoreRotations(...args),
   deleteStoreRotation: (...args: unknown[]) => mockDeleteStoreRotation(...args),
-  importStoreRotations: (...args: unknown[]) => mockImportStoreRotations(...args),
 }));
 
-const { GET, DELETE, POST } = await import("@/app/api/history/route");
+const { GET, DELETE } = await import("@/app/api/history/route");
 
 const SESSION: SessionData = {
   accessToken: "token",
@@ -98,57 +96,5 @@ describe("DELETE /api/history", () => {
 
   it("400 on a bad id", async () => {
     expect((await DELETE(jsonRequest("DELETE", { id: "x" }))).status).toBe(400);
-  });
-});
-
-describe("POST /api/history (import)", () => {
-  it("imports rotations for allowed accounts only and reports the rest as skipped", async () => {
-    mockImportStoreRotations.mockResolvedValue(1);
-
-    const response = await POST(jsonRequest("POST", {
-      rotations: [ROTATION, { ...ROTATION, puuid: "stranger-puuid", date: "2026-09-19" }],
-    }));
-    const body = await response.json();
-
-    expect(mockImportStoreRotations).toHaveBeenCalledWith([ROTATION]);
-    expect(body).toEqual({ imported: 1, skipped: 1, skippedPuuids: ["stranger-puuid"] });
-  });
-
-  it("400 on a malformed rotation", async () => {
-    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date: "20/09/2026" }] }));
-    expect(response.status).toBe(400);
-    expect(mockImportStoreRotations).not.toHaveBeenCalled();
-  });
-
-  it.each(["2026-02-31", "2026-13-01", "2026-00-10"])("400 on the impossible date %s", async (date) => {
-    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date }] }));
-    expect(response.status).toBe(400);
-    expect(mockImportStoreRotations).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ["a date before Valorant existed", { date: "2019-12-31" }],
-    ["a date in the future", { date: "2099-01-01" }],
-    ["too many items", { items: Array.from({ length: 11 }, () => ROTATION.items[0]) }],
-    ["an oversized name", { items: [{ ...ROTATION.items[0], displayName: "x".repeat(201) }] }],
-    ["a fractional cost", { items: [{ ...ROTATION.items[0], cost: 1.5 }] }],
-    ["a negative cost", { items: [{ ...ROTATION.items[0], cost: -1 }] }],
-    ["a colour that is not hex", { items: [{ ...ROTATION.items[0], tierColor: "url(x)" }] }],
-  ])("400 on %s", async (_label, override) => {
-    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, ...override }] }));
-    expect(response.status).toBe(400);
-    expect(mockImportStoreRotations).not.toHaveBeenCalled();
-  });
-
-  it("400 on more rotations than one batch", async () => {
-    const response = await POST(jsonRequest("POST", { rotations: Array.from({ length: 1001 }, () => ROTATION) }));
-    expect(response.status).toBe(400);
-    expect(mockImportStoreRotations).not.toHaveBeenCalled();
-  });
-
-  it("accepts a leap day", async () => {
-    mockImportStoreRotations.mockResolvedValue(1);
-    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date: "2024-02-29" }] }));
-    expect(response.status).toBe(200);
   });
 });

@@ -9,9 +9,6 @@
  *   4. Migrates any existing sessions.json data (renames to .migrated after import)
  *
  * Subsequent calls return the already-resolved Client instantly via cached promise.
- *
- * NOTE: This file is intentionally separate from src/lib/db.ts, which is the
- * Dexie/IndexedDB client for client-side store history and must not be touched.
  */
 
 import { createClient, type Client } from '@libsql/client';
@@ -20,7 +17,7 @@ import fs from 'fs';
 
 import type { SessionData } from './schemas/session';
 import { createLogger } from "./logger";
-import { CREATE_STORE_ROTATIONS_TABLE, CREATE_STORE_ROTATIONS_INDEX } from './store-history-db';
+import { CREATE_STORE_ROTATIONS_TABLE, CREATE_STORE_ROTATIONS_INDEX } from './store-history-schema';
 const log = createLogger("session-db");
 
 // ---------------------------------------------------------------------------
