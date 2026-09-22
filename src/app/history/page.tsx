@@ -110,7 +110,7 @@ export default function HistoryPage() {
     let cancelled = false;
     (async () => {
       try {
-        await load();
+        if (!cancelled) await load();
       } catch (error) {
         console.error("Failed to load history:", error);
         if (!cancelled) setState("error");

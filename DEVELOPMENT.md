@@ -193,7 +193,7 @@ src/
 │       ├── inventory/        # Owned weapon skins
 │       ├── wishlist/         # Bookmark management
 │       ├── accounts/         # Multi-account list + switch
-│       └── history/          # Store rotation history: list, delete, one-time browser import
+│       └── history/          # Store rotation history: list, delete
 ├── components/
 │   ├── auth/                 # LoginForm
 │   ├── store/                # StoreCard, StoreGrid, DailyStore, Bundle, NightMarket, Wallet, LoadingSkeleton, SectionErrorBoundary
