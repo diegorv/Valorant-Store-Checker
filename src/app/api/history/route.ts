@@ -17,28 +17,38 @@ import type { SessionData } from "@/lib/schemas/session";
 
 const HISTORY_LIMIT = 365;
 
+/** Valorant's release: no store existed before it. */
+const FIRST_STORE_DATE = "2020-06-02";
+
+/** Latest acceptable day: today in UTC, plus one for a browser clock running ahead. */
+function latestStoreDate(): string {
+  return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+}
+
+// Imported rows are client-supplied and permanent, so every field is bounded.
 const HistoryItemSchema = z.object({
-  uuid: z.string(),
-  displayName: z.string(),
-  cost: z.number(),
-  tierName: z.string().nullable(),
-  tierColor: z.string(),
+  uuid: z.string().max(64),
+  displayName: z.string().max(200),
+  cost: z.number().int().nonnegative().max(100_000),
+  tierName: z.string().max(64).nullable(),
+  tierColor: z.string().regex(/^#[0-9a-f]{3,8}$/i),
 });
 
 const RotationSchema = z.object({
-  puuid: z.string(),
+  puuid: z.string().max(128),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .refine((d) => {
       const parsed = new Date(`${d}T00:00:00Z`);
       return !isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === d;
-    }, "Not a calendar date"),
+    }, "Not a calendar date")
+    .refine((d) => d >= FIRST_STORE_DATE && d <= latestStoreDate(), "Outside the store's lifetime"),
   timestamp: z.number(),
   expiresAt: z.number(),
-  gameName: z.string().optional(),
-  tagLine: z.string().optional(),
-  items: z.array(HistoryItemSchema).min(1),
+  gameName: z.string().max(64).optional(),
+  tagLine: z.string().max(16).optional(),
+  items: z.array(HistoryItemSchema).min(1).max(10),
 });
 
 const ImportSchema = z.object({ rotations: z.array(RotationSchema).max(IMPORT_BATCH_SIZE) });

@@ -126,9 +126,29 @@ describe("POST /api/history (import)", () => {
     expect(mockImportStoreRotations).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["a date before Valorant existed", { date: "2019-12-31" }],
+    ["a date in the future", { date: "2099-01-01" }],
+    ["too many items", { items: Array.from({ length: 11 }, () => ROTATION.items[0]) }],
+    ["an oversized name", { items: [{ ...ROTATION.items[0], displayName: "x".repeat(201) }] }],
+    ["a fractional cost", { items: [{ ...ROTATION.items[0], cost: 1.5 }] }],
+    ["a negative cost", { items: [{ ...ROTATION.items[0], cost: -1 }] }],
+    ["a colour that is not hex", { items: [{ ...ROTATION.items[0], tierColor: "url(x)" }] }],
+  ])("400 on %s", async (_label, override) => {
+    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, ...override }] }));
+    expect(response.status).toBe(400);
+    expect(mockImportStoreRotations).not.toHaveBeenCalled();
+  });
+
+  it("400 on more rotations than one batch", async () => {
+    const response = await POST(jsonRequest("POST", { rotations: Array.from({ length: 1001 }, () => ROTATION) }));
+    expect(response.status).toBe(400);
+    expect(mockImportStoreRotations).not.toHaveBeenCalled();
+  });
+
   it("accepts a leap day", async () => {
     mockImportStoreRotations.mockResolvedValue(1);
-    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date: "2028-02-29" }] }));
+    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date: "2024-02-29" }] }));
     expect(response.status).toBe(200);
   });
 });
