@@ -1,57 +1,52 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { HistoryCard } from "@/components/history/HistoryCard";
 import { HistoryStats } from "@/components/history/HistoryStats";
-import { deleteRotation } from "@/lib/store-history";
+import { computeHistoryStats } from "@/lib/history-stats";
+import { importLegacyRotations, type ImportResponse } from "@/lib/history-import";
 import type { StoreRotation, HistoryStats as HistoryStatsType } from "@/types/history";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, User } from "lucide-react";
 
-// Compute stats for a given set of rotations
-function computeStats(rotations: StoreRotation[]): HistoryStatsType {
-  if (rotations.length === 0) {
-    return {
-      totalRotationsSeen: 0,
-      uniqueSkinsOffered: 0,
-      mostOfferedSkin: { uuid: "", displayName: "N/A", count: 0 },
-      averageDailyCost: 0,
-    };
+/**
+ * Before history lived on the server, each browser logged rotations into its
+ * own IndexedDB. Whatever this browser has is sent up once per account; the
+ * server ignores days it already knows. An account the server skips (not
+ * linked here yet) is retried on a later visit.
+ */
+const IMPORTED_KEY = "vsc:history-imported-puuids";
+
+function readImported(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(IMPORTED_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : [];
+  } catch {
+    return []; // storage blocked: try the import every time, it is idempotent
   }
-
-  const skinUuids = new Set<string>();
-  const skinCounts = new Map<string, { displayName: string; count: number }>();
-  let totalCost = 0;
-
-  for (const rotation of rotations) {
-    for (const item of rotation.items) {
-      skinUuids.add(item.uuid);
-      totalCost += item.cost;
-      const existing = skinCounts.get(item.uuid);
-      if (existing) {
-        existing.count++;
-      } else {
-        skinCounts.set(item.uuid, { displayName: item.displayName, count: 1 });
-      }
-    }
-  }
-
-  let mostOfferedSkin = { uuid: "", displayName: "N/A", count: 0 };
-  for (const [uuid, data] of skinCounts.entries()) {
-    if (data.count > mostOfferedSkin.count) {
-      mostOfferedSkin = { uuid, displayName: data.displayName, count: data.count };
-    }
-  }
-
-  return {
-    totalRotationsSeen: rotations.length,
-    uniqueSkinsOffered: skinUuids.size,
-    mostOfferedSkin,
-    averageDailyCost: totalCost / rotations.length,
-  };
 }
+
+async function importBrowserHistory(): Promise<void> {
+  if (!db) return;
+  const imported = readImported();
+  const done = await importLegacyRotations(await db.storeRotations.toArray(), new Set(imported), async (batch) => {
+    const response = await fetch("/api/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rotations: batch }),
+    });
+    return response.ok ? ((await response.json()) as ImportResponse) : null;
+  });
+  if (!done || done.length === 0) return; // a failed batch leaves everything to retry next visit
+  try {
+    window.localStorage.setItem(IMPORTED_KEY, JSON.stringify([...imported, ...done]));
+  } catch {
+    // ignore
+  }
+}
+
+type LoadState = "loading" | "ready" | "unauthorized" | "error";
 
 interface AccountGroup {
   puuid: string;
@@ -134,15 +129,40 @@ function AccountSection({ group, onDelete, defaultExpanded = true }: AccountSect
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  // Reactively query all store rotations
-  const rotations = useLiveQuery(async () => {
-    if (!db) return [];
-    return await db.storeRotations.orderBy("date").reverse().limit(365).toArray();
+  const [rotations, setRotations] = useState<StoreRotation[]>([]);
+  const [state, setState] = useState<LoadState>("loading");
+
+  const load = useCallback(async () => {
+    const response = await fetch("/api/history", { cache: "no-store" });
+    if (response.status === 401) {
+      setState("unauthorized");
+      return;
+    }
+    if (!response.ok) throw new Error(`History request failed: ${response.status}`);
+    const data = (await response.json()) as { rotations: StoreRotation[] };
+    setRotations(data.rotations);
+    setState("ready");
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await importBrowserHistory().catch((error) => console.warn("History import skipped:", error));
+        if (!cancelled) await load();
+      } catch (error) {
+        console.error("Failed to load history:", error);
+        if (!cancelled) setState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   // Group rotations by puuid and compute per-account stats
   const accountGroups = useMemo((): AccountGroup[] => {
-    if (!rotations || rotations.length === 0) return [];
+    if (rotations.length === 0) return [];
 
     const map = new Map<string, StoreRotation[]>();
     for (const rotation of rotations) {
@@ -160,28 +180,58 @@ export default function HistoryPage() {
       return {
         puuid,
         displayName,
-        rotations: rots, // already newest-first from the query
-        stats: computeStats(rots),
+        rotations: rots, // already newest-first from the API
+        stats: computeHistoryStats(rots),
       };
     });
   }, [rotations]);
 
   const handleDelete = useCallback(async (id: number) => {
-    await deleteRotation(id);
+    const response = await fetch("/api/history", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (response.ok) setRotations((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  // ── Private browsing ──────────────────────────────────────────────────────
-  if (db === null) {
+  // ── Not signed in ─────────────────────────────────────────────────────────
+  if (state === "unauthorized") {
+    return (
+      <main className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <h1 className="font-display text-5xl uppercase text-light mb-8">Store History</h1>
+          <div className="angular-card bg-void-surface/50 p-12 text-center space-y-6">
+            <p className="text-xl text-zinc-400">Sign in to see your store history</p>
+            <p className="text-sm text-zinc-500">
+              Every day you open your store is recorded to your account, on any device.
+            </p>
+            <Link
+              href="/login"
+              className="inline-block px-6 py-3 bg-brand hover:bg-brand/80 text-void-deep font-medium uppercase tracking-wide transition-colors duration-200 angular-btn"
+            >
+              Sign in
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ── Error ─────────────────────────────────────────────────────────────────
+  if (state === "error") {
     return (
       <main className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
         <div className="max-w-7xl mx-auto space-y-8">
           <h1 className="font-display text-5xl uppercase text-light mb-8">Store History</h1>
           <div className="angular-card bg-void-surface/50 p-12 text-center space-y-4">
-            <p className="text-xl text-zinc-400">History is unavailable in private browsing mode</p>
-            <p className="text-sm text-zinc-500">
-              IndexedDB storage is required to track your store history. Please use a regular
-              browsing window.
-            </p>
+            <p className="text-xl text-zinc-400">Could not load your history</p>
+            <button
+              onClick={() => { setState("loading"); load().catch(() => setState("error")); }}
+              className="inline-block px-6 py-3 bg-brand hover:bg-brand/80 text-void-deep font-medium uppercase tracking-wide transition-colors duration-200 angular-btn"
+            >
+              Try again
+            </button>
           </div>
         </div>
       </main>
@@ -189,7 +239,7 @@ export default function HistoryPage() {
   }
 
   // ── Loading ───────────────────────────────────────────────────────────────
-  if (rotations === undefined) {
+  if (state === "loading") {
     return (
       <main className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
         <div className="max-w-7xl mx-auto space-y-8">

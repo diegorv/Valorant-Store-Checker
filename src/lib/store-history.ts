@@ -1,6 +1,10 @@
 /**
- * Store history CRUD utilities
- * Handles logging, querying, stats, and pruning of historical store rotations
+ * Store history — browser side (legacy)
+ *
+ * History is now recorded on the server when the store page renders
+ * (lib/store-history-db.ts) and read through /api/history. This module only
+ * remains so the history page can import what a browser logged before that,
+ * once, into the server. logStoreRotation() is no longer called.
  */
 
 import { db } from './db';

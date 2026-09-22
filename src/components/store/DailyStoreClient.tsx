@@ -1,18 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
 import { StoreGrid } from "./StoreGrid";
 import type { StoreItem } from "@/types/store";
-import { logStoreRotation } from "@/lib/store-history";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useCountdown } from "@/hooks/useCountdown";
 
 interface DailyStoreClientProps {
   items: StoreItem[];
   initialWishlistedUuids: string[];
-  expiresAt: string; // ISO string 
-  puuid: string;
-  account?: { gameName?: string; tagLine?: string };
+  expiresAt: string; // ISO string
 }
 
 function DigitCard({ value }: { value: string }) {
@@ -27,7 +23,7 @@ function Separator() {
   return <span className="text-brand text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>;
 }
 
-export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puuid, account }: DailyStoreClientProps) {
+export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt }: DailyStoreClientProps) {
   const { wishlistedUuids, toggleWishlist } = useWishlist(initialWishlistedUuids);
   const timeLeft = useCountdown(expiresAt);
 
@@ -35,14 +31,6 @@ export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puu
   const h = String(timeLeft.hours).padStart(2, "0");
   const m = String(timeLeft.minutes).padStart(2, "0");
   const s = String(timeLeft.seconds).padStart(2, "0");
-
-  useEffect(() => {
-    if (items.length > 0 && puuid) {
-      logStoreRotation(puuid, items, new Date(expiresAt), account).catch((e) =>
-        console.error("Failed to log store history:", e)
-      );
-    }
-  }, [items, puuid, expiresAt, account]);
 
   return (
     <>
