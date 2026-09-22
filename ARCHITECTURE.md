@@ -21,7 +21,7 @@ How Valorant Store Checker is built: the stack, the request flow and the pattern
 | **Validation**    | [Zod 4](https://zod.dev)                                                                                |
 | **Server DB**     | [LibSQL / Turso](https://turso.tech) (SQLite)                                                           |
 | **Cache**         | [Upstash Redis](https://upstash.com) (REST) — or bundled Redis + [SRH](https://github.com/hiett/serverless-redis-http) in Docker |
-| **Client DB**     | [Dexie.js](https://dexie.org) (IndexedDB — legacy store history, imported to the server once)            |
+| **Client DB**     | [Dexie.js](https://dexie.org) (IndexedDB — legacy store history, imported to the server once per account)            |
 | **PDF Export**    | [jspdf](https://github.com/parallax/jsPDF) & [html2canvas-pro](https://github.com/niklasvh/html2canvas) |
 | **Unit Tests**    | [Vitest](https://vitest.dev) + [MSW v2](https://mswjs.io), [Stryker](https://stryker-mutator.io) for mutation testing |
 | **E2E Tests**     | [Playwright](https://playwright.dev) against an MSW-mocked server                                       |

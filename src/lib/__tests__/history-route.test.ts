@@ -111,12 +111,24 @@ describe("POST /api/history (import)", () => {
     const body = await response.json();
 
     expect(mockImportStoreRotations).toHaveBeenCalledWith([ROTATION]);
-    expect(body).toEqual({ imported: 1, skipped: 1 });
+    expect(body).toEqual({ imported: 1, skipped: 1, skippedPuuids: ["stranger-puuid"] });
   });
 
   it("400 on a malformed rotation", async () => {
     const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date: "20/09/2026" }] }));
     expect(response.status).toBe(400);
     expect(mockImportStoreRotations).not.toHaveBeenCalled();
+  });
+
+  it.each(["2026-02-31", "2026-13-01", "2026-00-10"])("400 on the impossible date %s", async (date) => {
+    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date }] }));
+    expect(response.status).toBe(400);
+    expect(mockImportStoreRotations).not.toHaveBeenCalled();
+  });
+
+  it("accepts a leap day", async () => {
+    mockImportStoreRotations.mockResolvedValue(1);
+    const response = await POST(jsonRequest("POST", { rotations: [{ ...ROTATION, date: "2028-02-29" }] }));
+    expect(response.status).toBe(200);
   });
 });

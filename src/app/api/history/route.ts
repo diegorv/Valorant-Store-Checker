@@ -11,11 +11,11 @@ import { z } from "zod";
 import { withSession, parseBody } from "@/lib/api-validate";
 import { getAccounts } from "@/lib/accounts";
 import { getStoreRotations, deleteStoreRotation, importStoreRotations } from "@/lib/store-history-db";
+import { IMPORT_BATCH_SIZE } from "@/lib/history-import";
 import { createLogger } from "@/lib/logger";
 import type { SessionData } from "@/lib/schemas/session";
 
 const HISTORY_LIMIT = 365;
-const IMPORT_LIMIT = 1000;
 
 const HistoryItemSchema = z.object({
   uuid: z.string(),
@@ -27,7 +27,13 @@ const HistoryItemSchema = z.object({
 
 const RotationSchema = z.object({
   puuid: z.string(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((d) => {
+      const parsed = new Date(`${d}T00:00:00Z`);
+      return !isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === d;
+    }, "Not a calendar date"),
   timestamp: z.number(),
   expiresAt: z.number(),
   gameName: z.string().optional(),
@@ -35,7 +41,7 @@ const RotationSchema = z.object({
   items: z.array(HistoryItemSchema).min(1),
 });
 
-const ImportSchema = z.object({ rotations: z.array(RotationSchema).max(IMPORT_LIMIT) });
+const ImportSchema = z.object({ rotations: z.array(RotationSchema).max(IMPORT_BATCH_SIZE) });
 const DeleteSchema = z.object({ id: z.number().int().positive() });
 
 /** The active account plus every account linked in this browser's registry. */
@@ -78,8 +84,9 @@ export const POST = withSession(async (request, session, reqId?: string) => {
   try {
     const allowed = new Set(await allowedPuuids(session));
     const accepted = parsed.data.rotations.filter((r) => allowed.has(r.puuid));
+    const skippedPuuids = [...new Set(parsed.data.rotations.map((r) => r.puuid))].filter((p) => !allowed.has(p));
     const imported = await importStoreRotations(accepted);
-    return NextResponse.json({ imported, skipped: parsed.data.rotations.length - accepted.length });
+    return NextResponse.json({ imported, skipped: parsed.data.rotations.length - accepted.length, skippedPuuids });
   } catch (error) {
     log.error("Failed to import history:", error);
     return NextResponse.json({ error: "Failed to import history", code: "UNKNOWN" }, { status: 500 });

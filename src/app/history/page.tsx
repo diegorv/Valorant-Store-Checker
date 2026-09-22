@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { HistoryCard } from "@/components/history/HistoryCard";
 import { HistoryStats } from "@/components/history/HistoryStats";
 import { computeHistoryStats } from "@/lib/history-stats";
+import { importLegacyRotations, type ImportResponse } from "@/lib/history-import";
 import type { StoreRotation, HistoryStats as HistoryStatsType } from "@/types/history";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -11,31 +12,35 @@ import { ChevronDown, User } from "lucide-react";
 
 /**
  * Before history lived on the server, each browser logged rotations into its
- * own IndexedDB. On the first visit after that change, whatever this browser
- * has is sent up once; the server ignores days it already knows.
+ * own IndexedDB. Whatever this browser has is sent up once per account; the
+ * server ignores days it already knows. An account the server skips (not
+ * linked here yet) is retried on a later visit.
  */
-const IMPORT_FLAG = "vsc:history-imported";
+const IMPORTED_KEY = "vsc:history-imported-puuids";
+
+function readImported(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(IMPORTED_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : [];
+  } catch {
+    return []; // storage blocked: try the import every time, it is idempotent
+  }
+}
 
 async function importBrowserHistory(): Promise<void> {
   if (!db) return;
-  try {
-    if (window.localStorage.getItem(IMPORT_FLAG)) return;
-  } catch {
-    // storage blocked: try the import every time, it is idempotent
-  }
-  const rotations = await db.storeRotations.toArray();
-  if (rotations.length > 0) {
+  const imported = readImported();
+  const done = await importLegacyRotations(await db.storeRotations.toArray(), new Set(imported), async (batch) => {
     const response = await fetch("/api/history", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rotations: rotations.map(({ id: _id, ...rotation }) => rotation),
-      }),
+      body: JSON.stringify({ rotations: batch }),
     });
-    if (!response.ok) return; // keep the flag unset so the next visit retries
-  }
+    return response.ok ? ((await response.json()) as ImportResponse) : null;
+  });
+  if (!done || done.length === 0) return; // a failed batch leaves everything to retry next visit
   try {
-    window.localStorage.setItem(IMPORT_FLAG, "1");
+    window.localStorage.setItem(IMPORTED_KEY, JSON.stringify([...imported, ...done]));
   } catch {
     // ignore
   }
