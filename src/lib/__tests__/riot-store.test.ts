@@ -435,6 +435,21 @@ describe("fetchWithShardFallback — shard selection", () => {
     expect(pdHostsCalled()).toEqual(["pd.eu.a.pvp.net"]);
   });
 
+  it("gives up when the player's shard answers 403, instead of taking another shard's empty account", async () => {
+    // Riot maintenance: the player's shard refuses while every other shard
+    // happily answers 200 for a player it does not host
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.includes("valorant-api.com")) return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
+      const host = new URL(url).host;
+      return Promise.resolve(host === "pd.na.a.pvp.net" ? makeFailResponse(403) : makeOkResponse(MOCK_WALLET));
+    });
+
+    await expect(fetchWithShardFallback({ ...MOCK_TOKENS, region: "am" }, walletUrl)).rejects.toThrow(
+      /status 403/
+    );
+    expect(pdHostsCalled()).toEqual(["pd.na.a.pvp.net"]);
+  });
+
   it("never calls the same PD host twice in one lookup", async () => {
     mockShards([]); // every shard fails
 

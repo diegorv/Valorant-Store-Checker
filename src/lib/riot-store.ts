@@ -166,9 +166,11 @@ const cachedShardByPuuid = new Map<string, string>();
  *
  * Tries a single shard first — the one cached for this PUUID, or the session
  * region on first use — and remembers it on success, so the common case is one
- * request. Only when that shard fails are the other shards probed in parallel
- * (skipping any that map to an already-tried PD host); probes that errored at
- * the network level get one sequential retry with a longer timeout.
+ * request. Only a 404/405 — the shard saying it does not know this player —
+ * sends the other shards a parallel probe (skipping any that map to an
+ * already-tried PD host); probes that errored at the network level get one
+ * sequential retry with a longer timeout. Any other status is an error the
+ * caller has to see.
  */
 export async function fetchWithShardFallback(
   tokens: StoreTokens,
@@ -186,8 +188,11 @@ export async function fetchWithShardFallback(
       cachedShardByPuuid.set(tokens.puuid, preferred);
       return response;
     }
-    if (![403, 404, 405].includes(response.status)) {
-      // Not a wrong-shard error (e.g. 401 expired token) — other shards won't help
+    if (![404, 405].includes(response.status)) {
+      // Not a wrong-shard error — other shards won't help. A 403 belongs here:
+      // Riot answers it while a region is under maintenance, and a shard that
+      // does not host this player would answer 200 with an empty account
+      // (no skins, no VP), which would read as "you own nothing".
       const errorBody = await response.text().catch(() => "No error body");
       throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
     }
