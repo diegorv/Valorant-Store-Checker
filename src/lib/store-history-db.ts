@@ -14,28 +14,26 @@ import type { StoreRotation, HistoryStoreItem } from "@/types/history";
 
 const log = createLogger("store-history-db");
 
-/** Owned here so session-db and the tests create exactly the same table. */
-export const CREATE_STORE_ROTATIONS_TABLE = `
-  CREATE TABLE IF NOT EXISTS store_rotations (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    puuid      TEXT    NOT NULL,
-    date       TEXT    NOT NULL,
-    timestamp  INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL,
-    game_name  TEXT,
-    tag_line   TEXT,
-    items      TEXT    NOT NULL,
-    UNIQUE (puuid, date)
-  )
-`.trim();
-
-export const CREATE_STORE_ROTATIONS_INDEX = `
-  CREATE INDEX IF NOT EXISTS idx_store_rotations_puuid_date ON store_rotations(puuid, date)
-`.trim();
-
 /** Rotation day, UTC — the store rotates at 00:00 UTC, same key the browser log used. */
 export function rotationDate(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The day a rotation belongs to, read from when it expires rather than from
+ * the clock: a page that starts at 23:59 and renders past midnight is still
+ * yesterday's store, and must not take today's row.
+ *
+ * The expiry is snapped to the nearest 00:00 UTC before stepping back a day.
+ * It is never exact — Riot sends whole seconds left and the clock is read
+ * after the fetch — so it lands either side of midnight, and an hour of drift
+ * must not move the row to another day.
+ */
+export function rotationDateOf(expiresAt: Date): string {
+  const midnight = Math.round(expiresAt.getTime() / DAY_MS) * DAY_MS;
+  return rotationDate(new Date(midnight - DAY_MS));
 }
 
 /** Keep only what the history page shows. */
@@ -73,15 +71,31 @@ function toRotation(row: Row): StoreRotation {
   };
 }
 
+/** Import only: a day the server already has is left alone. */
 const INSERT_SQL = `
   INSERT OR IGNORE INTO store_rotations (puuid, date, timestamp, expires_at, game_name, tag_line, items)
   VALUES (?, ?, ?, ?, ?, ?, ?)
 `.trim();
 
 /**
- * Records today's rotation for an account. A second call on the same day is
- * a no-op (UNIQUE puuid+date), so rendering the store twice does not double
- * up. Returns true when a row was written.
+ * Recording: a later render of the same day replaces what it finds. The first
+ * render can hold a skin the catalog did not know yet ("New Skin"), so the row
+ * has to stay correctable; `timestamp` keeps pointing at the first sighting.
+ */
+const UPSERT_SQL = `
+  INSERT INTO store_rotations (puuid, date, timestamp, expires_at, game_name, tag_line, items)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT (puuid, date) DO UPDATE SET
+    expires_at = excluded.expires_at,
+    game_name  = COALESCE(excluded.game_name, store_rotations.game_name),
+    tag_line   = COALESCE(excluded.tag_line, store_rotations.tag_line),
+    items      = excluded.items
+`.trim();
+
+/**
+ * Records a rotation for an account, one row per day (UNIQUE puuid+date), so
+ * rendering the store twice does not double up. Returns true when the row was
+ * written or refreshed.
  */
 export async function recordStoreRotation(
   puuid: string,
@@ -93,10 +107,10 @@ export async function recordStoreRotation(
   if (items.length === 0) return false;
   const db = await initSessionDb();
   const result = await db.execute({
-    sql: INSERT_SQL,
+    sql: UPSERT_SQL,
     args: [
       puuid,
-      rotationDate(now),
+      rotationDateOf(expiresAt),
       now.getTime(),
       expiresAt.getTime(),
       account?.gameName ?? null,
@@ -104,9 +118,9 @@ export async function recordStoreRotation(
       JSON.stringify(toHistoryItems(items)),
     ],
   });
-  const inserted = result.rowsAffected > 0;
-  if (inserted) log.info("Recorded store rotation for PUUID:", puuid.substring(0, 8));
-  return inserted;
+  const written = result.rowsAffected > 0;
+  if (written) log.info("Recorded store rotation for PUUID:", puuid.substring(0, 8));
+  return written;
 }
 
 /**
