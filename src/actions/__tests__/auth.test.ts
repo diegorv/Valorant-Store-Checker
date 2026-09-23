@@ -24,6 +24,7 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/lib/accounts", () => ({
   addAccount: vi.fn().mockResolvedValue(undefined),
+  migrateSessionToRegistry: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/rate-limiter", () => ({

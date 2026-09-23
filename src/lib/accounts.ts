@@ -263,6 +263,48 @@ export async function addAccount(
   );
 }
 
+/**
+ * Register the account of a session that predates the registry.
+ *
+ * Sessions created before the multi-account registry existed are held only by
+ * the main session cookie. Listing accounts used to build the registry from
+ * them, which revoked and reissued the caller's session on a read; doing it on
+ * the login path instead puts the write where one is already expected.
+ *
+ * Unlike addAccount this writes no main session cookie — the account being
+ * registered is the one already signed in — so it stays clear of the rule that
+ * the session cookie is the last side effect of a login.
+ *
+ * No-op once a registry exists, or when nobody is signed in.
+ */
+export async function migrateSessionToRegistry(): Promise<void> {
+  if (await getAccounts()) return;
+
+  const session = await getSession();
+  if (!session) return;
+
+  // Per-account copy first, so the registry never points at an account whose
+  // session cannot be loaded back.
+  await saveAccountSession(session.puuid, session);
+
+  await saveAccounts({
+    accounts: [
+      {
+        puuid: session.puuid,
+        region: session.region,
+        gameName: session.gameName,
+        tagLine: session.tagLine,
+        addedAt: session.createdAt ?? Date.now(),
+      },
+    ],
+    activePuuid: session.puuid,
+  });
+
+  log.info(
+    `Migrated existing session ${getShortPuuid(session.puuid)} into the registry`
+  );
+}
+
 export async function switchAccount(targetPuuid: string): Promise<boolean> {
   const registry = await getAccounts();
 

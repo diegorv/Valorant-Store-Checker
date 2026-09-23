@@ -2,29 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createLogger } from "@/lib/logger";
+import { useAccounts } from "./AccountsProvider";
 
 const log = createLogger("AccountSwitcher");
 
-interface Account {
-  puuid: string;
-  region: string;
-  gameName?: string;
-  tagLine?: string;
-  addedAt: number;
-  isActive: boolean;
-}
-
 export function AccountSwitcher() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { accounts, loading, refresh } = useAccounts();
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Fetch accounts on mount
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -44,24 +30,6 @@ export function AccountSwitcher() {
       };
     }
   }, [isOpen]);
-
-  async function fetchAccounts() {
-    try {
-      const response = await fetch("/api/accounts");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch accounts: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setAccounts(data.accounts || []);
-      log.info(`Loaded ${data.accounts?.length || 0} accounts`);
-    } catch (error) {
-      log.error("Failed to fetch accounts:", error);
-      setAccounts([]);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleSwitchAccount(puuid: string) {
     if (switchingTo) return; // Prevent double-clicks
@@ -114,7 +82,7 @@ export function AccountSwitcher() {
         window.location.reload();
       } else {
         // Just refetch accounts
-        await fetchAccounts();
+        await refresh();
       }
     } catch (error) {
       log.error("Failed to remove account:", error);

@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { addAccount } from "@/lib/accounts";
+import { addAccount, migrateSessionToRegistry } from "@/lib/accounts";
 
 export const AuthBodySchema = z.discriminatedUnion("type", [
   z.object({
@@ -52,6 +52,11 @@ export async function registerAuthenticatedSession(
   },
   riotCookies: string,
 ): Promise<void> {
+  // A session that predates the registry is known only to the session cookie.
+  // Register it here, while a session write is expected anyway, so that adding
+  // a second account does not drop the first one from the switcher.
+  await migrateSessionToRegistry();
+
   await addAccount(
     {
       puuid: tokens.puuid,
