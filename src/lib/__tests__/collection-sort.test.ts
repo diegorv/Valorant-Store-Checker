@@ -30,6 +30,7 @@ function skin(overrides: Partial<CollectionSkin>): CollectionSkin {
 describe("weaponClassOf", () => {
   it("maps every gun to its armory class", () => {
     expect(weaponClassOf("Classic")).toBe("Sidearms");
+    expect(weaponClassOf("Bandit")).toBe("Sidearms");
     expect(weaponClassOf("Spectre")).toBe("SMGs");
     expect(weaponClassOf("Judge")).toBe("Shotguns");
     expect(weaponClassOf("Vandal")).toBe("Rifles");

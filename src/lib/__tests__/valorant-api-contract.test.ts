@@ -41,8 +41,10 @@ const {
   getCompetitiveTierIconByTier,
   getWeaponSkinsByUuids,
   getWeaponSkinsByLevelUuids,
+  getSkinWeaponIndex,
   _resetSkinsCache,
   _resetTiersCache,
+  _resetSkinWeaponIndex,
 } = await import("@/lib/valorant-api");
 
 const BASE = "https://valorant-api.com/v1";
@@ -77,6 +79,14 @@ const SKIN = {
       assetPath: "Chromas/Chroma-1",
     },
   ],
+};
+
+/** /v1/weapons repeats the whole skin under each weapon; only these two fields are kept. */
+const WEAPON = {
+  uuid: "weapon-1",
+  displayName: "Vandal",
+  category: "EEquippableCategory::Rifle",
+  skins: [{ ...SKIN }],
 };
 
 const TIER = {
@@ -211,6 +221,7 @@ beforeEach(() => {
   mockRedisSet.mockResolvedValue("OK");
   _resetSkinsCache();
   _resetTiersCache();
+  _resetSkinWeaponIndex();
 });
 
 // ---------------------------------------------------------------------------
@@ -222,6 +233,12 @@ describe("endpoints", () => {
     const spy = fetchMock(ok([SKIN]));
     await getWeaponSkins();
     expect(fetchedUrl(spy)).toBe(`${BASE}/weapons/skins`);
+  });
+
+  it("getSkinWeaponIndex fetches the weapons list", async () => {
+    const spy = fetchMock(ok([WEAPON]));
+    await getSkinWeaponIndex();
+    expect(fetchedUrl(spy)).toBe(`${BASE}/weapons`);
   });
 
   it("getContentTiers fetches the content tiers list", async () => {
@@ -301,6 +318,22 @@ describe("cache writes", () => {
     expect(written.data).toEqual([SKIN]);
     expect(written.timestamp).toBeGreaterThanOrEqual(before);
     expect(written.timestamp).toBeLessThanOrEqual(after);
+  });
+
+  it("stores the weapons list stripped to the skin UUIDs it indexes", async () => {
+    fetchMock(ok([WEAPON]));
+    await getSkinWeaponIndex();
+
+    expect(mockRedisSet).toHaveBeenCalledTimes(1);
+    const [key, payload, options] = mockRedisSet.mock.calls[0]!;
+
+    expect(key).toBe("valorant:weapons");
+    expect(options).toEqual({ ex: DAY_SECONDS });
+    // The endpoint's response is megabytes of duplicated skin data; caching it
+    // whole would be pointless traffic on every cold start.
+    expect(JSON.parse(payload as string).data).toEqual([
+      { displayName: "Vandal", skins: [{ uuid: SKIN.uuid }] },
+    ]);
   });
 
   it.each([

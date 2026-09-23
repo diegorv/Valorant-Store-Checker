@@ -39,8 +39,11 @@ const {
   getSkinLevelByUuid,
   getBuddyLevelByUuid,
   getSprayByUuid,
+  buildSkinWeaponIndex,
+  getSkinWeaponIndex,
   _resetSkinsCache,
   _resetTiersCache,
+  _resetSkinWeaponIndex,
 } = await import("@/lib/valorant-api");
 
 // ---------------------------------------------------------------------------
@@ -141,6 +144,7 @@ beforeEach(() => {
   // Reset module-level caches so tests are isolated
   _resetSkinsCache();
   _resetTiersCache();
+  _resetSkinWeaponIndex();
 });
 
 describe("getWeaponSkins", () => {
@@ -674,6 +678,73 @@ describe("getWeaponSkinsByLevelUuids", () => {
 
     expect(result.size).toBe(1);
     expect(result.get("skin-parent")!.displayName).toBe("Vandal");
+  });
+});
+
+describe("buildSkinWeaponIndex", () => {
+  it("collapses every melee skin onto the single Melee weapon", () => {
+    const index = buildSkinWeaponIndex([
+      { displayName: "Melee", skins: [{ uuid: "reaver-karambit" }, { uuid: "oni-claw" }, { uuid: "sky-reaper-sword" }] },
+    ]);
+
+    expect([...index.values()]).toEqual(["Melee", "Melee", "Melee"]);
+  });
+
+  it("names the weapon of a skin whose display name does not end in it", () => {
+    // "Random Favorite Skin" exists once per gun — reading the last word gave "Skin"
+    const index = buildSkinWeaponIndex([
+      { displayName: "Vandal", skins: [{ uuid: "vandal-random-favorite" }] },
+      { displayName: "Odin", skins: [{ uuid: "odin-random-favorite" }] },
+    ]);
+
+    expect(index.get("vandal-random-favorite")).toBe("Vandal");
+    expect(index.get("odin-random-favorite")).toBe("Odin");
+  });
+
+  it("lowercases skin UUIDs so entitlement casing matches", () => {
+    const index = buildSkinWeaponIndex([{ displayName: "Phantom", skins: [{ uuid: "SKIN-ONI" }] }]);
+
+    expect(index.get("skin-oni")).toBe("Phantom");
+  });
+});
+
+describe("getSkinWeaponIndex", () => {
+  const WEAPONS = [
+    { displayName: "Vandal", skins: [{ uuid: "skin-prime" }] },
+    { displayName: "Melee", skins: [{ uuid: "skin-reaver-karambit" }] },
+  ];
+
+  it("cache hit: builds the index without fetching", async () => {
+    mockRedisGet.mockResolvedValue(makeCachedPayload(WEAPONS));
+
+    const index = await getSkinWeaponIndex();
+
+    expect(index.get("skin-prime")).toBe("Vandal");
+    expect(index.get("skin-reaver-karambit")).toBe("Melee");
+  });
+
+  it("cache miss: fetches once, then serves the in-memory index", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => makeValidApiResponse(WEAPONS),
+    } as Response);
+
+    const first = await getSkinWeaponIndex();
+    const second = await getSkinWeaponIndex();
+
+    expect(first.get("skin-prime")).toBe("Vandal");
+    expect(second).toBe(first);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("skins missing from the index are not invented", async () => {
+    mockRedisGet.mockResolvedValue(makeCachedPayload(WEAPONS));
+
+    const index = await getSkinWeaponIndex();
+
+    expect(index.has("skin-released-today")).toBe(false);
   });
 });
 

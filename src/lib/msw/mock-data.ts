@@ -294,6 +294,23 @@ export function getMockWeaponSkins(): ValorantAPIResponse<ValorantWeaponSkin[]> 
 }
 
 /**
+ * Mock weapons response from valorant-api.com/v1/weapons — the endpoint that
+ * says which weapon a skin belongs to. Only the fields ValorantWeaponSchema
+ * keeps are mocked. "Reaver Omega" is a melee skin, so the collection must
+ * label it "Melee" and not guess a weapon from its name.
+ */
+export function getMockWeapons(): ValorantAPIResponse<Array<{ displayName: string; skins: Array<{ uuid: string }> }>> {
+  return {
+    status: 200,
+    data: [
+      { displayName: "Vandal", skins: [{ uuid: MOCK_SKIN_UUID_1 }] },
+      { displayName: "Phantom", skins: [{ uuid: MOCK_UNOWNED_SKIN_UUID }] },
+      { displayName: "Melee", skins: [{ uuid: MOCK_SKIN_UUID_2 }] },
+    ],
+  };
+}
+
+/**
  * Mock content tiers response from valorant-api.com/v1/contenttiers.
  * Returns a ValorantAPIResponse wrapping ValorantContentTier[].
  */

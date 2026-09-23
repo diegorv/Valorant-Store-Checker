@@ -2,7 +2,8 @@
  * Encyclopedia utility: weapon name extraction
  *
  * Pure standalone function — no server-only dependencies.
- * Mirrors the logic from riot-inventory.ts extractWeaponName.
+ * Guesses the weapon from the skin's name; the collection page instead reads
+ * it from valorant-api's skin → weapon index (see getSkinWeaponIndex).
  */
 
 const KNOWN_WEAPONS = [

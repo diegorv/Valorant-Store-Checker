@@ -54,6 +54,21 @@ export const ValorantWeaponSkinSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Weapon schema (/v1/weapons)
+// ---------------------------------------------------------------------------
+
+/**
+ * Only the two fields the skin → weapon index needs. The endpoint repeats the
+ * whole skin payload under every weapon, which zod strips here.
+ */
+export const ValorantWeaponSchema = z.object({
+  displayName: z.string(),
+  skins: z.array(z.object({ uuid: z.string() })),
+});
+
+export type ValorantWeapon = z.infer<typeof ValorantWeaponSchema>;
+
+// ---------------------------------------------------------------------------
 // Content Tier schema
 // ---------------------------------------------------------------------------
 

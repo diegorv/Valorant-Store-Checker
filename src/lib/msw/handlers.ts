@@ -15,6 +15,7 @@ import {
   getMockStorefront,
   getMockWallet,
   getMockWeaponSkins,
+  getMockWeapons,
   getMockContentTiers,
   getMockHenrikAccount,
   getMockHenrikMMR,
@@ -222,6 +223,15 @@ export const handlers = [
    */
   http.get(`${VALORANT_API_BASE}/weapons/skins`, () => {
     return HttpResponse.json(getMockWeaponSkins());
+  }),
+
+  /**
+   * GET /v1/weapons
+   * Returns the weapons each mock skin belongs to — the collection reads the
+   * weapon name from here, not from the skin's display name.
+   */
+  http.get(`${VALORANT_API_BASE}/weapons`, () => {
+    return HttpResponse.json(getMockWeapons());
   }),
 
   /**
