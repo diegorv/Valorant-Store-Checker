@@ -149,8 +149,9 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
   if (redis) {
     try {
       cached = await redis.get<string>(key);
-    } catch {
+    } catch (error) {
       // Redis error (timeout, connection failure) — treat as cache miss
+      log.warn("Profile cache read failed, treating as a miss:", error);
     }
   }
   if (cached) {

@@ -267,7 +267,8 @@ export async function authenticateRiotAccount(
     if (!authResponse.ok) {
       // Read the body for more context on failures
       const errorBody = await authResponse.text();
-      log.warn("Step 2 - Error body:", errorBody);
+      // Truncated: an unbounded third-party string, and warn is on in production.
+      log.warn("Step 2 - Error body:", errorBody.slice(0, 200));
       return {
         success: false,
         error: `Authentication failed: ${authResponse.status} ${authResponse.statusText}`,
@@ -284,7 +285,9 @@ export async function authenticateRiotAccount(
       return { success: false, error: "Invalid auth response from Riot" };
     }
 
-    log.debug("Step 2 - Full response:", JSON.stringify(authData));
+    // Type only: the `response` payload carries the redirect URI whose fragment
+    // holds the live access and ID tokens.
+    log.debug("Step 2 - Response type:", authData.type);
 
     // Step 3: Handle MFA if required
     if (authData.type === "multifactor") {
