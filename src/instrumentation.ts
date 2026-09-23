@@ -1,12 +1,14 @@
 /**
- * Next.js Instrumentation - ENCRYPTION_KEY validation at server startup.
+ * Next.js Instrumentation - ENCRYPTION_KEY and Redis validation at server startup.
  *
  * This register() function runs AFTER next build completes, NOT during build.
  * This is the ONLY safe place for production env validation that must not
  * run during `next build`.
  *
- * - Development/Test: does nothing (session-store.ts handles fallback with warning)
- * - Every other environment: throws if key missing or invalid
+ * - Development/Test: does nothing (session-store.ts handles the key fallback with
+ *   a warning, rate-limiter.ts warns on every unlimited request)
+ * - Every other environment: throws if the key is missing or invalid, or if Redis
+ *   was never configured
  */
 
 export async function register() {
@@ -30,6 +32,27 @@ export async function register() {
         "ENCRYPTION_KEY must be exactly 64 hexadecimal characters (32 bytes).\n" +
         "Generate a valid key with:\n" +
         '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+      );
+    }
+
+    // "Never configured" — no Redis credentials at all. The auth rate limiter
+    // then has no backing store and every login attempt passes, so a deployment
+    // others can reach must not come up. This is NOT the same as a configured
+    // deployment whose Redis is momentarily unreachable: that one is handled per
+    // request in lib/rate-limiter.ts and still fails open on purpose.
+    // Asserts on the client itself rather than re-reading the credentials, so it
+    // can never disagree with the value rate-limiter.ts branches on. Imported
+    // here, not at module scope, so development and test never build a client
+    // just to skip this check.
+    const { redis } = await import("@/lib/redis-client");
+
+    if (!redis) {
+      throw new Error(
+        "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required outside development and test.\n" +
+        "Without them the auth endpoints accept unlimited login attempts.\n" +
+        "Add Upstash Redis from the Vercel Marketplace (it injects KV_REST_API_URL /\n" +
+        "KV_REST_API_TOKEN, which are accepted too), or point these at any Upstash-REST\n" +
+        "compatible server — docker-compose.yml ships one."
       );
     }
   }

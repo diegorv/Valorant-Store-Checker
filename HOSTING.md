@@ -109,7 +109,7 @@ Same setup, but the image is built from your checkout. Useful when you have loca
    - `ENCRYPTION_KEY` ← strongly recommended
    - `HENRIK_API_KEY` ← optional (rank data)
    - `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` ← for persistent sessions across deployments
-   - Upstash Redis ← recommended (cache + auth rate limiting)
+   - Upstash Redis ← required (cache + auth rate limiting)
 
    Both Turso and Upstash can be added from the project's **Storage** tab (Vercel Marketplace), which injects the variables automatically.
 
@@ -158,12 +158,12 @@ Reference for every variable the app reads. `.env.example` at the repository roo
 | `TURSO_AUTH_TOKEN`   | Turso auth token for the above database                                      |
 | `SESSION_DB_PATH`    | Override local SQLite path (default: `.session-data/sessions.db`)            |
 
-### Cache & Rate Limiting (Recommended)
+### Cache & Rate Limiting (Required)
 
 | Variable                   | Description                                                                                                                                  |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `UPSTASH_REDIS_REST_URL`   | Upstash Redis REST URL. Enables the store/profile/catalog caches and auth rate limiting                                                      |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token                                                                                                                     |
+| `UPSTASH_REDIS_REST_URL`   | Upstash Redis REST URL. Enables the store/profile/catalog caches and auth rate limiting. Required outside development and test               |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token. Required outside development and test                                                                              |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Used as a fallback for the two variables above — these are the names the Vercel Marketplace Upstash integration injects             |
 | `RATE_LIMIT_REQS_PER_MIN`  | Max auth requests per minute per IP (default: `10`)                                                                                          |
 | `TRUSTED_PROXY_HOPS`       | Number of reverse proxies in front of the app (default: `1`). See [Rate limiting behind a reverse proxy](#rate-limiting-behind-a-reverse-proxy) |
@@ -171,6 +171,8 @@ Reference for every variable the app reads. `.env.example` at the repository roo
 | `APP_PORT`                 | **Docker only.** Host port the app is published on (default: `3000`)                                                                         |
 
 > **Important:** Without `ENCRYPTION_KEY`, a deployed app refuses to start — Riot session cookies are never written to the database as plaintext. Set this variable on every deployment.
+
+> **Important:** Without Redis credentials, a deployed app also refuses to start — the auth rate limiter has no backing store, so every login attempt would pass unthrottled. Startup validation fails but the process still binds its port, so watch for a 500 on every request rather than for an exit. The Docker setup supplies the credentials from its bundled Redis, so this only affects deployments where you attach Redis yourself. A Redis that is configured but stops answering is a different case: a request that hits the 5-second timeout is let through, and logged.
 
 ### Rate limiting behind a reverse proxy
 

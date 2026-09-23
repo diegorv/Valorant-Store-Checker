@@ -75,13 +75,15 @@ export const env = {
    */
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY as string | undefined,
 
-  /** Optional: Upstash Redis REST URL for serverless cache persistence.
+  /** Upstash Redis REST URL for serverless cache persistence. Must be set outside
+   *  development and test — instrumentation.ts refuses to start without it.
    *  Get from: Upstash Dashboard -> Redis -> Overview -> REST URL
    *  Falls back to KV_REST_API_URL (Vercel Marketplace Upstash integration).
    */
   UPSTASH_REDIS_REST_URL: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) as string | undefined,
 
-  /** Optional: Upstash Redis REST Token for serverless cache persistence.
+  /** Upstash Redis REST Token for serverless cache persistence. Must be set outside
+   *  development and test — instrumentation.ts refuses to start without it.
    *  Get from: Upstash Dashboard -> Redis -> Overview -> REST Token
    *  Falls back to KV_REST_API_TOKEN (Vercel Marketplace Upstash integration).
    */
