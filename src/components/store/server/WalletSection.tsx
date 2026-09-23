@@ -9,12 +9,16 @@ interface WalletSectionProps {
 
 export async function WalletSection({ session }: WalletSectionProps) {
   const wallet = await getWallet(session);
+  const vp = wallet?.Balances[CURRENCY_IDS.VP];
+  const rp = wallet?.Balances[CURRENCY_IDS.RP];
+  const kc = wallet?.Balances[CURRENCY_IDS.KC];
 
+  // A balance Riot did not send is unknown, not zero: the user makes purchase
+  // decisions on these numbers, so an absent VP or RP renders as unavailable.
+  // KC stays optional — the wallet displays fine without it.
   return (
-    <WalletDisplay wallet={{
-      vp: wallet?.Balances[CURRENCY_IDS.VP] || 0,
-      rp: wallet?.Balances[CURRENCY_IDS.RP] || 0,
-      kc: wallet?.Balances[CURRENCY_IDS.KC] || 0,
-    }} />
+    <WalletDisplay
+      wallet={vp === undefined || rp === undefined ? null : { vp, rp, kc }}
+    />
   );
 }

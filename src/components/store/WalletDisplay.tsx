@@ -2,14 +2,32 @@ import Image from "next/image";
 import { WalletBalance } from "@/types/store";
 
 interface WalletDisplayProps {
-  wallet: WalletBalance;
+  /** `null` when the balances could not be read — never render that as zero */
+  wallet: WalletBalance | null;
   className?: string;
 }
 
+const CONTAINER_CLASSES =
+  "flex gap-6 angular-card-sm bg-void-surface/80 backdrop-blur-sm px-6 py-4 border border-white/5 shadow-lg";
+
 export function WalletDisplay({ wallet, className = "" }: WalletDisplayProps) {
+  if (!wallet) {
+    return (
+      <div
+        className={`${CONTAINER_CLASSES} items-center ${className}`}
+        role="region"
+        aria-label="Wallet: balance unavailable"
+      >
+        <span className="text-zinc-500 text-sm font-display uppercase tracking-wider">
+          Wallet Unavailable
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`flex gap-6 angular-card-sm bg-void-surface/80 backdrop-blur-sm px-6 py-4 border border-white/5 shadow-lg ${className}`}
+      className={`${CONTAINER_CLASSES} ${className}`}
       role="region"
       aria-label={`Wallet: ${wallet.vp.toLocaleString()} Valorant Points, ${wallet.rp.toLocaleString()} Radianite Points${wallet.kc ? `, ${wallet.kc.toLocaleString()} Kingdom Credits` : ''}`}
     >
