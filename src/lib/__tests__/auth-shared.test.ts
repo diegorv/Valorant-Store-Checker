@@ -49,14 +49,23 @@ describe("registerAuthenticatedSession", () => {
     vi.clearAllMocks();
   });
 
-  it("creates the session with the tokens plus the raw Riot cookies", async () => {
+  it("leaves the session to addAccount instead of creating one of its own", async () => {
+    // addAccount ends by calling createSession itself. A second call here would
+    // rotate the session twice per login.
     await registerAuthenticatedSession(tokens, "riot-cookie-string");
 
-    expect(createSession).toHaveBeenCalledTimes(1);
-    expect(createSession).toHaveBeenCalledWith({
-      ...tokens,
-      riotCookies: "riot-cookie-string",
-    });
+    expect(addAccount).toHaveBeenCalledTimes(1);
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
+  it("leaves no session behind when account registration fails", async () => {
+    vi.mocked(addAccount).mockRejectedValueOnce(new Error("registry write failed"));
+
+    await expect(
+      registerAuthenticatedSession(tokens, "riot-cookie-string"),
+    ).rejects.toThrow("registry write failed");
+
+    expect(createSession).not.toHaveBeenCalled();
   });
 
   it("registers the account with the identity fields and a timestamp", async () => {
@@ -104,20 +113,6 @@ describe("registerAuthenticatedSession", () => {
     expect(entry).not.toHaveProperty("riotCookies");
   });
 
-  it("creates the session before registering the account", async () => {
-    const order: string[] = [];
-    vi.mocked(createSession).mockImplementation(async () => {
-      order.push("createSession");
-    });
-    vi.mocked(addAccount).mockImplementation(async () => {
-      order.push("addAccount");
-    });
-
-    await registerAuthenticatedSession(tokens, "riot-cookie-string");
-
-    expect(order).toEqual(["createSession", "addAccount"]);
-  });
-
   it("omits optional identity fields when Riot did not return them", async () => {
     const minimal = {
       accessToken: "access-tok",
@@ -128,7 +123,6 @@ describe("registerAuthenticatedSession", () => {
 
     await registerAuthenticatedSession(minimal, "");
 
-    expect(createSession).toHaveBeenCalledWith({ ...minimal, riotCookies: "" });
     const [entry, session] = vi.mocked(addAccount).mock.calls[0]!;
     expect(entry.gameName).toBeUndefined();
     expect(entry.tagLine).toBeUndefined();

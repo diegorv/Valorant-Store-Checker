@@ -6,11 +6,7 @@
  */
 
 import { z } from "zod";
-import { createSession } from "@/lib/session";
 import { addAccount } from "@/lib/accounts";
-import { createLogger } from "@/lib/logger";
-
-export const log = createLogger("Auth API");
 
 export const AuthBodySchema = z.discriminatedUnion("type", [
   z.object({
@@ -36,10 +32,13 @@ export const AuthBodySchema = z.discriminatedUnion("type", [
 export type AuthBody = z.infer<typeof AuthBodySchema>;
 
 /**
- * Create a session cookie and register the account in the multi-account registry.
+ * Register the account in the multi-account registry.
  *
- * Centralises the repeated `createSession` + `addAccount` pattern so every
- * auth branch (credentials, MFA, URL, cookie) goes through a single path.
+ * Centralises the `addAccount` call so every auth branch (credentials, MFA,
+ * URL, cookie) goes through a single path. `addAccount` ends by creating the
+ * session, which keeps the session cookie the last side effect of a login:
+ * anything that fails before it leaves the user signed out rather than
+ * silently signed in.
  */
 export async function registerAuthenticatedSession(
   tokens: {
@@ -53,7 +52,6 @@ export async function registerAuthenticatedSession(
   },
   riotCookies: string,
 ): Promise<void> {
-  await createSession({ ...tokens, riotCookies });
   await addAccount(
     {
       puuid: tokens.puuid,

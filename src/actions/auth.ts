@@ -13,48 +13,12 @@
 import { headers } from "next/headers";
 import { completeAuthWithUrl } from "@/lib/riot-auth";
 import { refreshTokensWithCookies } from "@/lib/riot-reauth";
-import { createSession } from "@/lib/session";
-import { addAccount } from "@/lib/accounts";
+import { registerAuthenticatedSession } from "@/lib/auth-handlers/shared";
 import { createLogger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limiter";
 import { getClientIP } from "@/lib/rate-limit-utils";
 
 const log = createLogger("Auth Action");
-
-/** Shared helper — identical to the one in the API route */
-async function registerAuthenticatedSession(
-  tokens: {
-    accessToken: string;
-    entitlementsToken: string;
-    puuid: string;
-    region: string;
-    gameName?: string;
-    tagLine?: string;
-    country?: string;
-  },
-  riotCookies: string,
-) {
-  await createSession({ ...tokens, riotCookies });
-  await addAccount(
-    {
-      puuid: tokens.puuid,
-      region: tokens.region,
-      gameName: tokens.gameName,
-      tagLine: tokens.tagLine,
-      addedAt: Date.now(),
-    },
-    {
-      accessToken: tokens.accessToken,
-      entitlementsToken: tokens.entitlementsToken,
-      puuid: tokens.puuid,
-      region: tokens.region,
-      gameName: tokens.gameName,
-      tagLine: tokens.tagLine,
-      country: tokens.country,
-      riotCookies,
-    },
-  );
-}
 
 export type AuthActionResult =
   | { success: true; puuid: string; region: string }
