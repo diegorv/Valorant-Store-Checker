@@ -170,7 +170,7 @@ Reference for every variable the app reads. `.env.example` at the repository roo
 | `SRH_TOKEN`                | **Docker only.** Token for the bundled Redis REST proxy. Generate: `openssl rand -hex 32`                                                    |
 | `APP_PORT`                 | **Docker only.** Host port the app is published on (default: `3000`)                                                                         |
 
-> **Important:** Without `ENCRYPTION_KEY`, Riot session cookies are stored in plaintext in the database. Setting this variable is strongly recommended for any deployment accessible to others.
+> **Important:** Without `ENCRYPTION_KEY`, a deployed app refuses to start — Riot session cookies are never written to the database as plaintext. Set this variable on every deployment.
 
 ### Rate limiting behind a reverse proxy
 

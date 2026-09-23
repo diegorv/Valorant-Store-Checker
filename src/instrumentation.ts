@@ -5,17 +5,20 @@
  * This is the ONLY safe place for production env validation that must not
  * run during `next build`.
  *
- * - Production (NODE_ENV === "production"): throws if key missing or invalid
  * - Development/Test: does nothing (session-store.ts handles fallback with warning)
+ * - Every other environment: throws if key missing or invalid
  */
 
 export async function register() {
-  if (process.env.NODE_ENV === "production") {
+  // Allowlist, not denylist: staging, preview and an unset NODE_ENV must fail
+  // closed rather than inherit the development fallback.
+  const nodeEnv = process.env.NODE_ENV;
+  if (nodeEnv !== "development" && nodeEnv !== "test") {
     const key = process.env.ENCRYPTION_KEY;
 
     if (!key) {
       throw new Error(
-        "ENCRYPTION_KEY environment variable is required in production.\n" +
+        "ENCRYPTION_KEY environment variable is required outside development and test.\n" +
         "Generate a valid key with:\n" +
         '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"\n' +
         "Then set it in your environment or .env file."

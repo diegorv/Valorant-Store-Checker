@@ -10,11 +10,16 @@
  *   const secret = env.SESSION_SECRET; // guaranteed to be a string
  */
 
-function requiredInProduction(key: string, fallback?: string): string {
+function requiredOutsideDevelopment(key: string, fallback?: string): string {
   const value = process.env[key];
   if (value) return value;
 
-  if (process.env.NODE_ENV === "production") {
+  // Allowlist, not denylist: only an explicit development or test environment may
+  // fall back to an insecure default. Anything else — staging, preview, or an unset
+  // NODE_ENV — fails closed. Read from process.env, never from this module's own
+  // export: the test suite mocks this module, and a mocked guard is no guard.
+  const nodeEnv = process.env.NODE_ENV;
+  if (nodeEnv !== "development" && nodeEnv !== "test") {
     throw new Error(
       `❌ Missing required environment variable: ${key}. ` +
       `Set it in your environment or .env file before deploying.`
@@ -47,8 +52,8 @@ function trustedProxyHops(): number {
 }
 
 export const env = {
-  /** Secret key for encrypting session JWTs. Must be set in production. */
-  SESSION_SECRET: requiredInProduction("SESSION_SECRET", "dev-only-insecure-secret"),
+  /** Secret key for encrypting session JWTs. Must be set outside development and test. */
+  SESSION_SECRET: requiredOutsideDevelopment("SESSION_SECRET", "dev-only-insecure-secret"),
 
   /** Current runtime environment */
   NODE_ENV: (process.env.NODE_ENV ?? "development") as "development" | "production" | "test",
@@ -64,7 +69,9 @@ export const env = {
 
   /** Optional: 64-char hex string (32 bytes). Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    *  When set, riotCookies are encrypted at rest using AES-256-GCM before being written to SQLite.
-   *  When absent, cookies are stored as plaintext and a one-time warning is logged.
+   *  When absent, development and test fall back to an all-zero key with a one-time
+   *  warning; every other environment refuses to store cookies at all. They are never
+   *  written as plaintext.
    */
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY as string | undefined,
 
