@@ -26,7 +26,7 @@ test.describe("Collection Page", () => {
     // the level UUIDs are resolved against the Valorant-API handlers, so these
     // labels prove the hydration path ran rather than a fallback entry.
     await expect(page.getByRole("article", { name: "Prime Vandal, Select tier, Vandal" })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole("article", { name: "Reaver Omega, Select tier, Omega" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("article", { name: "Reaver Omega, Select tier, Melee" })).toBeVisible({ timeout: 15000 });
 
     // The catalog skin outside the entitlements is not in the default view…
     await expect(page.getByRole("article", { name: /Oni Phantom/ })).toHaveCount(0);
@@ -37,14 +37,14 @@ test.describe("Collection Page", () => {
     await expect(page.getByRole("article", { name: "Oni Phantom, Select tier, Phantom, not owned" })).toBeVisible();
 
     // "All" mixes both, in armory order: sidearms → … → rifles (Phantom before
-    // Vandal) → … → melee, with unknown weapons ("Omega") after melee
+    // Vandal) → … → melee, where every melee skin lands whatever it is called
     await page.getByRole("button", { name: "All 3" }).click();
     await expect(page.getByText("Showing 3 of 3 skins")).toBeVisible();
     const names = await page.getByRole("article").evaluateAll((cards) => cards.map((c) => c.getAttribute("aria-label")));
     expect(names).toEqual([
       "Oni Phantom, Select tier, Phantom, not owned",
       "Prime Vandal, Select tier, Vandal",
-      "Reaver Omega, Select tier, Omega",
+      "Reaver Omega, Select tier, Melee",
     ]);
 
     // Sorting by name is alphabetical regardless of weapon or ownership
@@ -53,7 +53,7 @@ test.describe("Collection Page", () => {
     expect(byName).toEqual([
       "Oni Phantom, Select tier, Phantom, not owned",
       "Prime Vandal, Select tier, Vandal",
-      "Reaver Omega, Select tier, Omega",
+      "Reaver Omega, Select tier, Melee",
     ]);
   });
 });

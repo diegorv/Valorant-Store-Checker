@@ -9,6 +9,7 @@ import { parseWithLog } from "@/lib/schemas/parse";
 import { z } from "zod";
 import {
   ValorantWeaponSkinSchema,
+  ValorantWeaponSchema,
   ValorantContentTierSchema,
   ValorantBundleSchema,
   ValorantSkinLevelSchema,
@@ -19,6 +20,7 @@ import {
   ValorantPlayerTitleSchema,
   CompetitiveSeasonSchema,
 } from "@/lib/schemas/valorant-api";
+import type { ValorantWeapon } from "@/lib/schemas/valorant-api";
 
 const log = createLogger("valorant-api");
 
@@ -34,6 +36,7 @@ const VALORANT_API_BASE = "https://valorant-api.com/v1";
 // Redis key prefixes
 const KEYS = {
   skins: "valorant:skins",
+  weapons: "valorant:weapons",
   tiers: "valorant:tiers",
   bundles: "valorant:bundles",
   competitive: "valorant:competitive",
@@ -48,6 +51,7 @@ const _skinsByUuid = new Map<string, ValorantWeaponSkin>();
 const _skinsByLevelUuid = new Map<string, ValorantWeaponSkin>();
 const _skinsByChromaUuid = new Map<string, ValorantWeaponSkin>();
 let _tiersCache: ValorantContentTier[] | null = null;
+let _skinWeaponIndex: Map<string, string> | null = null;
 
 /** Reset the skins cache — for testing only */
 export function _resetSkinsCache(): void {
@@ -60,6 +64,11 @@ export function _resetSkinsCache(): void {
 /** Reset the tiers cache — for testing only */
 export function _resetTiersCache(): void {
   _tiersCache = null;
+}
+
+/** Reset the skin → weapon index — for testing only */
+export function _resetSkinWeaponIndex(): void {
+  _skinWeaponIndex = null;
 }
 
 /**
@@ -174,6 +183,33 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
     }
   }
   return skins;
+}
+
+/**
+ * Indexes each skin UUID by the weapon it belongs to ("Vandal", "Melee", …).
+ * Every melee skin sits under the single "Melee" weapon, whatever the skin is
+ * called.
+ */
+export function buildSkinWeaponIndex(weapons: ValorantWeapon[]): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const weapon of weapons) {
+    for (const skin of weapon.skins) {
+      index.set(skin.uuid.toLowerCase(), weapon.displayName);
+    }
+  }
+  return index;
+}
+
+/**
+ * Skin UUID → weapon name, from /v1/weapons. The skins endpoint carries no
+ * weapon field, so this is the only place the two are paired.
+ * Results are cached in Redis for 24 hours and in-memory for O(1) lookups.
+ */
+export async function getSkinWeaponIndex(): Promise<Map<string, string>> {
+  if (_skinWeaponIndex) return _skinWeaponIndex;
+  const weapons = await fetchAndCache(KEYS.weapons, `${VALORANT_API_BASE}/weapons`, ValorantWeaponSchema.array(), "getWeapons");
+  _skinWeaponIndex = buildSkinWeaponIndex(weapons);
+  return _skinWeaponIndex;
 }
 
 /**

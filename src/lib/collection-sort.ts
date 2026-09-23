@@ -12,9 +12,9 @@ export interface WeaponClass {
   weapons: readonly string[];
 }
 
-/** Armory order. Every gun is listed; melee skins carry many names and fall into "Melee". */
+/** Armory order, under the names valorant-api gives the weapons. Every gun is listed; every melee skin is "Melee". */
 export const WEAPON_CLASSES: readonly WeaponClass[] = [
-  { name: "Sidearms", weapons: ["Classic", "Shorty", "Frenzy", "Ghost", "Sheriff"] },
+  { name: "Sidearms", weapons: ["Classic", "Shorty", "Frenzy", "Ghost", "Bandit", "Sheriff"] },
   { name: "SMGs", weapons: ["Stinger", "Spectre"] },
   { name: "Shotguns", weapons: ["Bucky", "Judge"] },
   { name: "Rifles", weapons: ["Bulldog", "Guardian", "Phantom", "Vandal"] },
@@ -34,7 +34,7 @@ WEAPON_CLASSES.forEach((cls, classIndex) => {
   cls.weapons.forEach((weapon, order) => weaponIndex.set(weapon.toLowerCase(), { classIndex, order }));
 });
 
-/** Class a weapon name belongs to. Unlisted names are melee skins (knives, axes, …). */
+/** Class a weapon name belongs to. A name the armory above does not list falls into "Melee". */
 export function weaponClassOf(weaponName: string): string {
   if (weaponName === UNKNOWN_WEAPON) return OTHER_CLASS;
   const known = weaponIndex.get(weaponName.toLowerCase());

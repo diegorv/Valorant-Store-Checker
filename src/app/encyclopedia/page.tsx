@@ -7,8 +7,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import { getWeaponSkins, getContentTiers } from "@/lib/valorant-api";
-import { extractWeaponName } from "@/lib/encyclopedia";
+import { getWeaponSkins, getContentTiers, getSkinWeaponIndex } from "@/lib/valorant-api";
 import { LoadingSkeleton } from '@/components/store/LoadingSkeleton';
 import type { EncyclopediaClientProps, EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
@@ -23,9 +22,10 @@ const EncyclopediaClient = dynamic(
 export const revalidate = 3600; // Rebuild at most once per hour — skins data changes at most once per game patch
 
 export default async function EncyclopediaPage() {
-  const [skins, tiers] = await Promise.all([
+  const [skins, tiers, skinWeapons] = await Promise.all([
     getWeaponSkins(),
     getContentTiers(),
+    getSkinWeaponIndex(),
   ]);
 
   // Build tier lookup map by UUID
@@ -43,7 +43,7 @@ export default async function EncyclopediaPage() {
 
   // Enrich each skin with computed weapon name and tier info
   const skinsWithWeaponAndTier: EncyclopediaSkin[] = skins.map((skin) => {
-    const weaponName = extractWeaponName(skin.displayName);
+    const weaponName = skinWeapons.get(skin.uuid.toLowerCase()) ?? "Unknown";
     const tier = skin.contentTierUuid ? tierMap.get(skin.contentTierUuid) : null;
     const tierColor = tier
       ? TIER_COLORS[tier.displayName.replace(" Edition", "")] ?? tier.highlightColor

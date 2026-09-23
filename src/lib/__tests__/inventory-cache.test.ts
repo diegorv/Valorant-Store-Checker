@@ -17,6 +17,7 @@ vi.mock("@/lib/valorant-api", () => ({
   getWeaponSkins: vi.fn(async () => []),
   getContentTiers: vi.fn(async () => []),
   getWeaponSkinsByLevelUuids: vi.fn(async () => new Map()),
+  getSkinWeaponIndex: vi.fn(async () => new Map()),
 }));
 
 vi.mock("@/lib/logger", () => ({

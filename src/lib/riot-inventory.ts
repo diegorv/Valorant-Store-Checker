@@ -6,7 +6,7 @@
  */
 
 import { StoreTokens, fetchWithShardFallback } from "@/lib/riot-store";
-import { getWeaponSkins, getWeaponSkinsByLevelUuids, getContentTiers } from "@/lib/valorant-api";
+import { getWeaponSkins, getWeaponSkinsByLevelUuids, getContentTiers, getSkinWeaponIndex } from "@/lib/valorant-api";
 import type { ValorantWeaponSkin, ValorantContentTier } from "@/types/riot";
 import { InventoryData, CollectionSkin, EditionCategory } from "@/types/inventory";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
@@ -29,8 +29,8 @@ const inventoryCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // The TTL above is only checked when the same PUUID is read again, so an entry
-// for a player who never comes back is never freed. Cap the map like
-// store-cache.ts caps its Redis sorted set.
+// for a player who never comes back is never freed. Cap the map so a
+// long-running instance cannot grow unbounded.
 const MAX_CACHE_ENTRIES = 50;
 
 /**
@@ -48,44 +48,11 @@ function cacheInventory(puuid: string, data: InventoryData, fetchedAt: number): 
 }
 
 /**
- * Extracts weapon name from skin display name
- * E.g., "Prime Vandal" -> "Vandal", "Glitchpop Phantom" -> "Phantom"
- * Edge case: "Melee" skins don't have a weapon prefix (e.g., "Reaver Dagger")
+ * Weapon name for a skin valorant-api's weapon index does not list — a brand
+ * new release, or the fallback entry below. The collection groups it under
+ * "Other" (see collection-sort.ts).
  */
-function extractWeaponName(displayName: string): string {
-  // Edge case: if "melee" appears in the name, it's a melee weapon
-  if (displayName.toLowerCase().includes("melee")) {
-    return "Melee";
-  }
-
-  // Standard pattern: weapon name is the last word after the last space
-  const words = displayName.trim().split(/\s+/);
-
-  // If only one word, it's likely the weapon name itself
-  if (words.length === 1) {
-    return displayName;
-  }
-
-  // Extract the last word as the weapon name
-  const weaponName = words[words.length - 1] ?? displayName;
-
-  // Special cases for common weapon names
-  const knownWeapons = [
-    "Vandal", "Phantom", "Operator", "Sheriff", "Ghost", "Frenzy",
-    "Classic", "Shorty", "Marshal", "Guardian", "Bulldog", "Spectre",
-    "Stinger", "Bucky", "Judge", "Ares", "Odin", "Knife", "Dagger",
-    "Karambit", "Sword", "Axe", "Claws", "Butterfly", "Blade", "Scythe"
-  ];
-
-  // If the last word is a known weapon, return it
-  if (knownWeapons.some(w => w.toLowerCase() === weaponName.toLowerCase())) {
-    return weaponName;
-  }
-
-  // For melee weapons with special names (e.g., "Reaver Karambit"),
-  // the last word is still the weapon type
-  return weaponName;
-}
+const UNKNOWN_WEAPON = "Unknown";
 
 /**
  * Clears the in-memory inventory cache for a specific user.
@@ -109,6 +76,7 @@ function tierColorFor(tier: ValorantContentTier | null): string {
 function toCollectionSkin(
   skin: ValorantWeaponSkin,
   tierMap: Map<string, ValorantContentTier>,
+  skinWeapons: Map<string, string>,
   owned: boolean,
 ): { entry: CollectionSkin; tier: ValorantContentTier | null } {
   const tier = skin.contentTierUuid
@@ -142,7 +110,7 @@ function toCollectionSkin(
       chromaCount: skin.chromas.length,
       levelCount: skin.levels.length,
       assetPath: skin.assetPath,
-      weaponName: extractWeaponName(skin.displayName),
+      weaponName: skinWeapons.get(skin.uuid.toLowerCase()) ?? UNKNOWN_WEAPON,
     },
   };
 }
@@ -203,11 +171,13 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
   // Batch hydrate with Valorant-API data
   // Note: Riot entitlements API returns skin LEVEL UUIDs, not parent skin UUIDs
   log.debug(`Hydrating ${skinUuids.length} skin level entitlements from Valorant-API`);
-  const [skinsMap, allTiers, catalog] = await Promise.all([
+  const [skinsMap, allTiers, catalog, skinWeapons] = await Promise.all([
     skinUuids.length > 0 ? getWeaponSkinsByLevelUuids(skinUuids) : Promise.resolve(new Map<string, ValorantWeaponSkin>()),
     // Pre-fetch ALL content tiers once — eliminates N serial getContentTierByUuid() calls
     getContentTiers(),
     getWeaponSkins(),
+    // The weapon each skin belongs to — the skins endpoint doesn't say
+    getSkinWeaponIndex(),
   ]);
 
   log.info(`Matched ${skinsMap.size} entitlements to skins from Valorant-API`);
@@ -235,8 +205,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
       // not yet indexed by valorant-api.com).
       if (!seenSkinUuids.has(uuid.toLowerCase())) {
         seenSkinUuids.add(uuid.toLowerCase());
-        const fallbackWeapon = "Unknown";
-        weaponNamesSet.add(fallbackWeapon);
+        weaponNamesSet.add(UNKNOWN_WEAPON);
 
         ownedSkins.push({
           uuid,
@@ -252,7 +221,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
           chromaCount: 0,
           levelCount: 1,
           assetPath: "",
-          weaponName: fallbackWeapon,
+          weaponName: UNKNOWN_WEAPON,
         });
       }
       continue;
@@ -261,7 +230,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
     // Mark this parent skin as seen
     seenSkinUuids.add(skin.uuid.toLowerCase());
 
-    const { entry, tier } = toCollectionSkin(skin, tierMap, true);
+    const { entry, tier } = toCollectionSkin(skin, tierMap, skinWeapons, true);
     weaponNamesSet.add(entry.weaponName);
     if (tier?.displayName) editionMap.set(tier.displayName, entry.tierColor);
     ownedSkins.push(entry);
@@ -273,7 +242,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
     if (!skin.contentTierUuid) continue; // weapon defaults, "Random Favorite Skin"
     if (seenSkinUuids.has(skin.uuid.toLowerCase())) continue;
 
-    const { entry, tier } = toCollectionSkin(skin, tierMap, false);
+    const { entry, tier } = toCollectionSkin(skin, tierMap, skinWeapons, false);
     weaponNamesSet.add(entry.weaponName);
     if (tier?.displayName) editionMap.set(tier.displayName, entry.tierColor);
     unownedSkins.push(entry);
