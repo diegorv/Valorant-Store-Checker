@@ -33,10 +33,6 @@ vi.mock("@/lib/accounts", () => ({
   removeAccount: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("@/lib/store-cache", () => ({
-  clearCachedStore: vi.fn().mockResolvedValue(undefined),
-}));
-
 // ---------------------------------------------------------------------------
 // Dynamic import of route AFTER mocks
 // ---------------------------------------------------------------------------
@@ -84,7 +80,6 @@ describe("POST /api/auth/logout", () => {
       addedAt: Date.now(),
     });
 
-    const { clearCachedStore } = await import("@/lib/store-cache");
     const { removeAccount } = await import("@/lib/accounts");
     const { addRateLimitHeaders } = await import("@/lib/rate-limit-utils");
 
@@ -93,7 +88,6 @@ describe("POST /api/auth/logout", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(clearCachedStore).toHaveBeenCalledWith("test-puuid-1234");
     expect(removeAccount).toHaveBeenCalledWith("test-puuid-1234");
     expect(addRateLimitHeaders).toHaveBeenCalled();
   });
@@ -109,39 +103,14 @@ describe("POST /api/auth/logout", () => {
     });
 
     const { createRateLimitedResponse: _createRateLimitedResponse } = await import("@/lib/rate-limit-utils");
-    const { getSession } = await import("@/lib/session");
-    const { clearCachedStore } = await import("@/lib/store-cache");
+    const { deleteSession } = await import("@/lib/session");
 
     const res = await POST(makeLogoutRequest());
 
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.error).toBe("Too many requests");
-    expect(getSession).not.toHaveBeenCalled();
-    expect(clearCachedStore).not.toHaveBeenCalled();
-  });
-
-  it("no active session: getSession returns null, skips clearCachedStore, still returns 200", async () => {
-    const { rateLimit } = await import("@/lib/rate-limiter");
-    vi.mocked(rateLimit).mockResolvedValue({
-      success: true,
-      limit: 10,
-      remaining: 9,
-      reset: Date.now() + 60000,
-      pending: Promise.resolve(0),
-    });
-
-    const { getSession } = await import("@/lib/session");
-    vi.mocked(getSession).mockResolvedValue(null);
-
-    const { clearCachedStore } = await import("@/lib/store-cache");
-
-    const res = await POST(makeLogoutRequest());
-
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(clearCachedStore).not.toHaveBeenCalled();
+    expect(deleteSession).not.toHaveBeenCalled();
   });
 
   it("no active account: getActiveAccount returns null, skips removeAccount, still returns 200", async () => {

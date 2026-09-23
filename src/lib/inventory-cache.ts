@@ -1,9 +1,8 @@
 /**
  * Server-side Inventory Data Cache
  *
- * Caches player's weapon skins collection in memory.
- * Similar to store-cache.ts, this allows users to view their collection
- * even if the Riot session is stale, as long as data was fetched once.
+ * Caches player's weapon skins collection in memory, so the collection still
+ * renders when a Riot request fails, as long as data was fetched once.
  */
 
 import type { InventoryData } from "@/types/inventory";
@@ -20,8 +19,8 @@ const cache = new Map<string, CacheEntry>();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 // The TTL above is only checked when a key is read again, so an entry for a
-// player who never comes back is never freed. Cap the map like store-cache.ts
-// caps its Redis sorted set, so a long-running instance can't grow unbounded.
+// player who never comes back is never freed. Cap the map so a long-running
+// instance can't grow unbounded.
 const MAX_CACHE_ENTRIES = 50;
 
 export function getCachedInventory(puuid: string): InventoryData | null {

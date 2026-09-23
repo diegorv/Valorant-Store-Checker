@@ -58,10 +58,6 @@ vi.mock("@/lib/session-store", () => ({
   cleanupExpiredSessions: vi.fn(async () => {}),
 }));
 
-vi.mock("@/lib/store-cache", () => ({
-  clearCachedStore: vi.fn(async () => {}),
-}));
-
 vi.mock("@/lib/rate-limiter", () => ({
   rateLimit: vi.fn(async () => ({
     success: true,

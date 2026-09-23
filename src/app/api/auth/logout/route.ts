@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, deleteSession } from "@/lib/session";
+import { deleteSession } from "@/lib/session";
 import { removeAccount, getActiveAccount } from "@/lib/accounts";
-import { clearCachedStore } from "@/lib/store-cache";
 import { rateLimit } from "@/lib/rate-limiter";
 import { getClientIP, addRateLimitHeaders, createRateLimitedResponse } from "@/lib/rate-limit-utils";
 
@@ -11,11 +10,6 @@ export async function POST(request: NextRequest) {
   const { success, limit, remaining, reset } = await rateLimit(ip);
   if (!success) {
     return createRateLimitedResponse({ limit, remaining, reset });
-  }
-
-  const session = await getSession();
-  if (session?.puuid) {
-    await clearCachedStore(session.puuid);
   }
 
   // Revoke the session the cookie points at BEFORE touching the registry.

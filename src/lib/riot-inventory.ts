@@ -29,8 +29,8 @@ const inventoryCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // The TTL above is only checked when the same PUUID is read again, so an entry
-// for a player who never comes back is never freed. Cap the map like
-// store-cache.ts caps its Redis sorted set.
+// for a player who never comes back is never freed. Cap the map so a
+// long-running instance cannot grow unbounded.
 const MAX_CACHE_ENTRIES = 50;
 
 /**
