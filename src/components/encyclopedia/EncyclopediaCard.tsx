@@ -12,6 +12,12 @@ export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlis
   const [wallpaperBlur, setWallpaperBlur] = useState<string>(DEFAULT_BLUR);
   const displayIsWishlisted = optimisticOverride ?? isWishlisted;
 
+  // Drop the override once the prop reports a new authoritative value, so a
+  // toggle the server rejected (and the parent rolled back) is reflected here
+  useEffect(() => {
+    setOptimisticOverride(null);
+  }, [isWishlisted]);
+
   // Lazily fetch wallpaper blur after mount — avoids 1000+ concurrent requests at page load.
   // Only visible cards (~20-30 in viewport) mount at once thanks to row virtualization.
   // Results are cached in fetchAndCacheBlurDataURL module cache.
