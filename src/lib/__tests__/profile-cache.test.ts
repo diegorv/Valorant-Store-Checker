@@ -344,6 +344,91 @@ describe("getProfileData — Tier 3 (total failure)", () => {
   });
 });
 
+describe("getProfileData — Redis failures never leak a PUUID nor fail the request", () => {
+  // @upstash/redis builds its message as `${body.error}, command was: ${JSON.stringify(req.body)}`,
+  // so the failing command — and with it the full key — is inside error.message.
+  const FULL_PUUID = "0e6ab3a5-2b1c-4f9d-9a7e-1c2d3e4f5a6b";
+
+  function loggedText() {
+    return mockLogWarn.mock.calls.flat().map((arg) => String(arg)).join(" ");
+  }
+
+  beforeEach(() => {
+    mockGetPlayerLoadout.mockResolvedValue(makeMockLoadout());
+    mockGetHenrikAccount.mockResolvedValue(makeMockAccount());
+    mockGetHenrikMMR.mockResolvedValue(makeMockMMR());
+    mockGetPlayerCardByUuid.mockResolvedValue({ smallArt: "", wideArt: "", largeArt: "" });
+    mockGetPlayerTitleByUuid.mockResolvedValue({ titleText: "Test Title" });
+    mockGetCompetitiveTierIconByTier.mockResolvedValue("https://ranked.icon");
+  });
+
+  it("a failed cache read still warns, but with the truncated PUUID only", async () => {
+    // UpstashError is what @upstash/redis actually throws, and its name is the
+    // only part of it the log is allowed to carry.
+    const upstashError = new Error(`WRONGPASS invalid credentials, command was: ["get","profile:${FULL_PUUID}"]`);
+    upstashError.name = "UpstashError";
+    mockRedisGet.mockRejectedValue(upstashError);
+
+    const result = await getProfileData(makeTokens(FULL_PUUID), "na");
+
+    expect(result.partial).toBe(false);
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Profile cache read failed"),
+      expect.anything(),
+    );
+    expect(loggedText()).not.toContain(FULL_PUUID);
+    expect(loggedText()).toContain(FULL_PUUID.substring(0, 8));
+    expect(loggedText()).toContain("UpstashError");
+  });
+
+  it("a failed cache write does not fail a request whose data was already fetched", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    mockRedisSet.mockRejectedValue(
+      new Error(`ERR max daily request limit exceeded, command was: ["set","profile:${FULL_PUUID}"]`),
+    );
+
+    const result = await getProfileData(makeTokens(FULL_PUUID), "na");
+
+    expect(result.partial).toBe(false);
+    expect(result.henrikName).toBe("TestPlayer");
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Profile cache write failed"),
+      expect.anything(),
+    );
+    expect(loggedText()).not.toContain(FULL_PUUID);
+  });
+
+  it("a rejection that is not an Error is still logged without the full PUUID", async () => {
+    mockRedisGet.mockRejectedValue(`ERR unauthenticated, command was: ["get","profile:${FULL_PUUID}"]`);
+
+    const result = await getProfileData(makeTokens(FULL_PUUID), "na");
+
+    expect(result.partial).toBe(false);
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Profile cache read failed"),
+      expect.anything(),
+    );
+    expect(loggedText()).not.toContain(FULL_PUUID);
+  });
+
+  it("a failed delete of a malformed entry does not fail the request", async () => {
+    mockRedisGet.mockResolvedValue("{invalid-json");
+    mockRedisDel.mockRejectedValue(
+      new Error(`READONLY You can't write against a read only replica, command was: ["del","profile:${FULL_PUUID}"]`),
+    );
+
+    const result = await getProfileData(makeTokens(FULL_PUUID), "na");
+
+    expect(result.partial).toBe(false);
+    expect(mockGetPlayerLoadout).toHaveBeenCalled();
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Malformed cache entry cleanup failed"),
+      expect.anything(),
+    );
+    expect(loggedText()).not.toContain(FULL_PUUID);
+  });
+});
+
 describe("clearProfileCache", () => {
   it("with puuid: calls redis.del with correct key", async () => {
     await clearProfileCache("test-puuid");

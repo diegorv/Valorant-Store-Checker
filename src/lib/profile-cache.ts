@@ -98,6 +98,11 @@ function toActHistory(seasonal: HenrikMMRData["seasonal"]): ActRecord[] | undefi
     .sort((a, b) => compareSeasonShortDesc(a.season, b.season));
 }
 
+/** Error class only: an @upstash/redis message embeds the command, and so the key. */
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : "unknown";
+}
+
 interface ProfileCacheEntry {
   data: ProfileData;
   cachedAt: number;
@@ -150,8 +155,10 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     try {
       cached = await redis.get<string>(key);
     } catch (error) {
-      // Redis error (timeout, connection failure) — treat as cache miss
-      log.warn("Profile cache read failed, treating as a miss:", error);
+      // Redis error (timeout, connection failure) — treat as cache miss.
+      // Class name only: @upstash/redis puts the failing command in the error
+      // message, and the command carries the full PUUID as part of the key.
+      log.warn(`Profile cache read failed (${errorName(error)}), treating as a miss for PUUID:`, tokens.puuid.substring(0, 8));
     }
   }
   if (cached) {
@@ -172,7 +179,15 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
       }
     } catch {
       // Malformed cache entry, treat as miss
-      if (redis) await redis.del(key);
+      if (redis) {
+        try {
+          await redis.del(key);
+        } catch (error) {
+          // The entry is already being treated as a miss; a failed cleanup
+          // must not fail the request on top of that.
+          log.warn(`Malformed cache entry cleanup failed (${errorName(error)}) for PUUID:`, tokens.puuid.substring(0, 8));
+        }
+      }
     }
   }
 
@@ -270,7 +285,15 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
   if (!profile.partial) {
     profile.nextUpdateAt = profile.cachedAt! + PROFILE_CACHE_TTL_SECONDS * 1000;
     const entry: ProfileCacheEntry = { data: profile, cachedAt: profile.cachedAt!, version: PROFILE_CACHE_VERSION };
-    if (redis) await redis.set(key, JSON.stringify(entry), { ex: PROFILE_CACHE_TTL_SECONDS });
+    if (redis) {
+      try {
+        await redis.set(key, JSON.stringify(entry), { ex: PROFILE_CACHE_TTL_SECONDS });
+      } catch (error) {
+        // The data is already fetched — a cache write failure costs the next
+        // request a miss, it must never fail this one.
+        log.warn(`Profile cache write failed (${errorName(error)}) for PUUID:`, tokens.puuid.substring(0, 8));
+      }
+    }
     log.info("Profile fetched successfully for PUUID:", tokens.puuid.substring(0, 8));
     return profile;
   }
