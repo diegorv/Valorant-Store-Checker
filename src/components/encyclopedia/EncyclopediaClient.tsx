@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import type { EncyclopediaClientProps, EncyclopediaSkin } from "@/types/encyclopedia";
 import type { WishlistItem } from "@/types/wishlist";
 import { EncyclopediaGrid } from "./EncyclopediaGrid";
@@ -13,6 +13,9 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
   // Wishlist state
   const [wishlistSet, setWishlistSet] = useState<Set<string>>(new Set());
   const [loadingWishlist, setLoadingWishlist] = useState(true);
+  // Skins the user toggled. The mount fetch's payload can predate a toggle, so
+  // the local state wins for these when that payload lands
+  const locallyToggled = useRef<Set<string>>(new Set());
 
   // Precompute weapon categories (sorted unique weapon names from skins)
   const weaponCategories = useMemo(() => {
@@ -43,7 +46,18 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
         const res = await fetch("/api/wishlist", { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
-          setWishlistSet(new Set(data.items.map((i: WishlistItem) => i.skinUuid)));
+          const serverUuids: string[] = data.items.map((i: WishlistItem) => i.skinUuid);
+          setWishlistSet((prev) => {
+            const next = new Set<string>(serverUuids);
+            for (const skinUuid of locallyToggled.current) {
+              if (prev.has(skinUuid)) {
+                next.add(skinUuid);
+              } else {
+                next.delete(skinUuid);
+              }
+            }
+            return next;
+          });
         }
       } catch {
         // Silently ignore network errors
@@ -60,6 +74,8 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
     const body = isCurrentlyWishlisted
       ? { skinUuid }
       : { skinUuid, displayName: skin.displayName, displayIcon: skin.displayIcon, tierColor: skin.tierColor };
+
+    locallyToggled.current.add(skinUuid);
 
     // Optimistic update
     setWishlistSet((prev) => {
@@ -80,7 +96,9 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        // Revert optimistic update on failure
+        // Revert optimistic update on failure — a rejected toggle carries no
+        // intent worth keeping over the fetched wishlist
+        locallyToggled.current.delete(skinUuid);
         setWishlistSet((prev) => {
           const next = new Set(prev);
           if (isCurrentlyWishlisted) {
@@ -93,6 +111,7 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
       }
     } catch {
       // Revert on network error
+      locallyToggled.current.delete(skinUuid);
       setWishlistSet((prev) => {
         const next = new Set(prev);
         if (isCurrentlyWishlisted) {
