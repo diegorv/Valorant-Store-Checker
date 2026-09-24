@@ -252,9 +252,6 @@ export async function addAccount(
   // Set this as the active account
   registry.activePuuid = entry.puuid;
 
-  // Save the registry
-  await saveAccounts(registry);
-
   // Construct SessionData
   const sessionData: SessionData = {
     accessToken: sessionTokens.accessToken,
@@ -270,6 +267,13 @@ export async function addAccount(
 
   // Save to per-account storage
   await saveAccountSession(entry.puuid, sessionData);
+
+  // Save the registry only once the session it names exists. Written first, a
+  // throw in saveAccountSession — saveSessionToStore refuses Riot cookies it
+  // cannot encrypt — left activePuuid on an account the user was not signed in
+  // as, and store history labelled the old account's rotation with the new
+  // account's Riot ID. Nothing above reads the registry back.
+  await saveAccounts(registry);
 
   // Set as the main active session (using createSession from session.ts)
   await createSession(sessionData);
