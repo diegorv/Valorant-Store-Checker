@@ -1,11 +1,14 @@
 /**
- * Next.js Middleware
+ * Next.js Proxy
  *
  * Protects routes that require authentication by checking for session cookies.
  *
  * Protected routes:
  * - /store - Main store page
- * - /api/store - Store API endpoints
+ * - /inventory - Inventory page
+ * - /api/inventory - Inventory API endpoints
+ * - /api/profile - Profile API endpoints
+ * - /profile - Profile page
  *
  * Logic:
  * - If no session cookie and user tries to access protected routes -> redirect to /login
@@ -20,9 +23,9 @@ import type { NextRequest } from "next/server";
 const SESSION_COOKIE_NAME = "valorant_session";
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory", "/api/profile", "/profile"];
+const PROTECTED_ROUTES = ["/store", "/inventory", "/api/inventory", "/api/profile", "/profile"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Always generate the request ID here — a client-supplied x-request-id is
@@ -37,8 +40,8 @@ export function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
   const hasSession = !!sessionCookie;
 
-  // Note: We do NOT redirect authenticated users away from /login in middleware,
-  // because middleware can only check cookie existence, not session store validity.
+  // Note: We do NOT redirect authenticated users away from /login in the proxy,
+  // because the proxy can only check cookie existence, not session store validity.
   // The login page itself checks getSession() and redirects to /store if truly valid.
 
   // If user is not authenticated and tries to access protected route
@@ -53,7 +56,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
-// Configure which routes should run middleware
+// Configure which routes should run the proxy
 export const config = {
   matcher: [
     /*

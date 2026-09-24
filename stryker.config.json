@@ -33,7 +33,7 @@
   "mutate": [
     "src/lib/**/*.ts",
     "src/app/api/**/*.ts",
-    "src/middleware.ts",
+    "src/proxy.ts",
     "!src/**/__tests__/**",
     "!src/lib/msw/**",
     "!src/lib/env.ts",
