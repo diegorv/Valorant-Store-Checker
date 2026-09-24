@@ -42,11 +42,12 @@ vi.mock("@/lib/valorant-api", () => ({
   getCompetitiveTierIconByTier: (...args: unknown[]) => mockGetCompetitiveTierIconByTier(...args),
 }));
 
+const mockLogWarn = vi.fn();
 vi.mock("@/lib/logger", () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),
-    warn: vi.fn(),
+    warn: mockLogWarn,
     error: vi.fn(),
   }),
 }));
@@ -234,7 +235,7 @@ describe("getProfileData — Tier 1 (API fetch)", () => {
     expect(mockRedisSet).toHaveBeenCalled();
   });
 
-  it("Tier 1: redis.get rejects with timeout → proceeds to API fetch (does not throw)", async () => {
+  it("Tier 1: redis.get rejects with timeout → logs a warning and proceeds to API fetch", async () => {
     mockRedisGet.mockRejectedValue(new Error("Redis timeout exceeded"));
     mockRedisSet.mockResolvedValue("OK");
     mockRedisDel.mockResolvedValue(1);
@@ -251,6 +252,11 @@ describe("getProfileData — Tier 1 (API fetch)", () => {
     // Should fall through to API fetch since cache read failed
     expect(mockGetPlayerLoadout).toHaveBeenCalled();
     expect(result.partial).toBe(false);
+    // A Redis outage degrades every profile fetch — it must leave a signal.
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Profile cache read failed"),
+      expect.anything(),
+    );
   });
 
   it("Tier 1: loadout fails, Henrik succeeds → partial:false, henrikFailed:false", async () => {

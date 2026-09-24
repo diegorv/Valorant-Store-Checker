@@ -132,3 +132,26 @@ describe("authenticateWithPaste — rate limiting", () => {
     expect(rateLimit).toHaveBeenCalledWith("127.0.0.1");
   });
 });
+
+describe("authenticateWithPaste — account registration", () => {
+  it("leaves no session behind when account registration fails", async () => {
+    const { rateLimit } = await import("@/lib/rate-limiter");
+    const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
+    const { createSession } = await import("@/lib/session");
+    const { addAccount } = await import("@/lib/accounts");
+    vi.mocked(rateLimit).mockResolvedValue(allowRateLimit());
+    vi.mocked(refreshTokensWithCookies).mockResolvedValue({
+      success: true,
+      tokens: mockTokens,
+      riotCookies: "ssid=new",
+      namedCookies: { raw: "ssid=new" },
+    });
+    vi.mocked(addAccount).mockRejectedValueOnce(new Error("registry write failed"));
+
+    const result = await authenticateWithPaste("ssid=old");
+
+    // The user is told it failed, so they must not be holding a session cookie.
+    expect(result).toEqual({ success: false, error: "registry write failed" });
+    expect(createSession).not.toHaveBeenCalled();
+  });
+});

@@ -11,19 +11,14 @@ import { encrypt } from "@/lib/session-crypto";
 
 let testClient: Client;
 
-// Valid 64-char hex encryption key for testing encrypted riotCookies
+// Valid 64-char hex encryption key for testing encrypted riotCookies.
+// session-store reads the raw process environment, so the key lives there and
+// tests swap in a malformed one by assigning to process.env directly.
 const TEST_ENCRYPTION_KEY = "a".repeat(64);
+process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
 
 vi.mock("@/lib/session-db", () => ({
   initSessionDb: vi.fn(async () => testClient),
-}));
-
-// Mutable so tests can swap in a malformed key (the `mock` prefix is what vi.mock's
-// hoisting allows a factory to reference)
-const mockEnv: { ENCRYPTION_KEY: string | undefined } = { ENCRYPTION_KEY: TEST_ENCRYPTION_KEY };
-
-vi.mock("@/lib/env", () => ({
-  env: mockEnv,
 }));
 
 // Import AFTER mock declarations (vi.mock is hoisted, so this is safe)
@@ -308,7 +303,7 @@ describe("saveSessionToStore — malformed ENCRYPTION_KEY", () => {
   });
 
   afterEach(() => {
-    mockEnv.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
+    process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
     vi.restoreAllMocks();
   });
 
@@ -316,7 +311,7 @@ describe("saveSessionToStore — malformed ENCRYPTION_KEY", () => {
     ["wrong length", "a".repeat(63)],
     ["64 non-hex characters", "z".repeat(64)],
   ])("refuses to store riotCookies with a key of %s", async (_label, badKey) => {
-    mockEnv.ENCRYPTION_KEY = badKey;
+    process.env.ENCRYPTION_KEY = badKey;
     const sessionId = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 
     await expect(
@@ -332,7 +327,7 @@ describe("saveSessionToStore — malformed ENCRYPTION_KEY", () => {
   });
 
   it("still saves sessions without riotCookies", async () => {
-    mockEnv.ENCRYPTION_KEY = "a".repeat(63);
+    process.env.ENCRYPTION_KEY = "a".repeat(63);
     const sessionId = "abababab-abab-abab-abab-abababababab";
 
     await saveSessionToStore(sessionId, validSession, 3600);

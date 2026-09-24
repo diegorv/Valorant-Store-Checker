@@ -3,7 +3,6 @@ import type { SessionData } from './schemas/session';
 import { parseWithLog } from '@/lib/schemas/parse';
 import { StoredSessionSchema } from '@/lib/schemas/session';
 import { encrypt, decrypt, isEncrypted } from './session-crypto';
-import { env } from './env';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('session-store');
@@ -46,10 +45,16 @@ const _warnedKeys: Record<string, boolean> = (global as unknown as Record<string
 (global as unknown as Record<string, Record<string, boolean>>).__sessionStoreWarnedKeys = _warnedKeys;
 
 function getEncryptionKey(): string | null {
-  const key = env.ENCRYPTION_KEY;
+  // Key and guard both come from the raw process environment, never from the
+  // validated env module: that module is mocked in tests, and a mocked guard is
+  // no guard — a mock supplying the zero key would walk straight past this.
+  const key = process.env.ENCRYPTION_KEY;
   if (!key) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("ENCRYPTION_KEY required in production — generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
+    // Allowlist, not denylist: staging, preview and an unset NODE_ENV fail closed
+    // instead of inheriting the development fallback.
+    const nodeEnv = process.env.NODE_ENV;
+    if (nodeEnv !== "development" && nodeEnv !== "test") {
+      throw new Error("ENCRYPTION_KEY required outside development and test — generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
     }
     if (!_warnedKeys['noKey']) {
       log.warn('ENCRYPTION_KEY not set — using fallback key. Generate a production key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');

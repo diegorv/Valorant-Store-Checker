@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 
@@ -952,5 +952,84 @@ describe("submitMfa — identity fields", () => {
       expect(result.tokens.tagLine).toBeUndefined();
       expect(result.tokens.country).toBeUndefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// authenticateRiotAccount — what reaches the logs
+// ---------------------------------------------------------------------------
+
+const LEAKED_ACCESS_TOKEN = "eyJhbGciOiJSUzI1NiJ9.bGl2ZS1hY2Nlc3M.signature-aaa";
+const LEAKED_ID_TOKEN = "eyJhbGciOiJSUzI1NiJ9.bGl2ZS1pZA.signature-bbb";
+const TOKEN_BEARING_URI =
+  `https://playvalorant.com/opt_in#access_token=${LEAKED_ACCESS_TOKEN}` +
+  `&id_token=${LEAKED_ID_TOKEN}&token_type=Bearer&expires_in=3600`;
+
+describe("authenticateRiotAccount — logging", () => {
+  let emitted: string[] = [];
+  let emittedDebug: string[] = [];
+
+  beforeEach(() => {
+    emitted = [];
+    emittedDebug = [];
+    const format = (args: unknown[]) =>
+      args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+    const capture = (...args: unknown[]) => {
+      emitted.push(format(args));
+    };
+    // logger.ts reads LOG_LEVEL at createLogger() time, so pin it before
+    // riot-auth builds its module-scope logger: debug stays on here whatever
+    // the runner's environment sets.
+    vi.stubEnv("LOG_LEVEL", "debug");
+    vi.resetModules();
+    vi.spyOn(console, "debug").mockImplementation((...args: unknown[]) => {
+      emittedDebug.push(format(args));
+      capture(...args);
+    });
+    vi.spyOn(console, "log").mockImplementation(capture);
+    vi.spyOn(console, "warn").mockImplementation(capture);
+    vi.spyOn(console, "error").mockImplementation(capture);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("never writes the Riot tokens to the log on a successful login", async () => {
+    server.use(putRespondingWithUri(TOKEN_BEARING_URI, "ssid=original-long-lived-ssid; Path=/"));
+
+    const { authenticateRiotAccount } = await import("@/lib/riot-auth");
+    const result = await authenticateRiotAccount("user", "pass");
+
+    expect(result.success).toBe(true);
+    // Asserted so the test cannot pass just because debug logging is off.
+    expect(emittedDebug.some((line) => line.startsWith("[riot-auth]"))).toBe(true);
+    expect(emitted.join("\n")).not.toContain(LEAKED_ACCESS_TOKEN);
+    expect(emitted.join("\n")).not.toContain(LEAKED_ID_TOKEN);
+  });
+
+  it("logs a bounded slice of the upstream body when the credential request fails upstream", async () => {
+    server.use(
+      http.put(
+        RIOT_AUTH_URL,
+        () =>
+          new HttpResponse("E".repeat(5000), {
+            status: 401,
+            statusText: "Unauthorized",
+          }),
+      ),
+    );
+
+    const { authenticateRiotAccount } = await import("@/lib/riot-auth");
+    const result = await authenticateRiotAccount("user", "pass");
+
+    expect(result.success).toBe(false);
+    const logged = emitted.find((line) => line.includes("Step 2 - Error body:"));
+    expect(logged).toBeDefined();
+    // Enough text to identify the failure...
+    expect(logged).toContain("E".repeat(200));
+    // ...but not an unbounded third-party string.
+    expect(logged).not.toContain("E".repeat(201));
   });
 });
