@@ -50,6 +50,24 @@ function getShortPuuid(puuid: string): string {
   return puuid.substring(0, 8);
 }
 
+/**
+ * Whether the account cookies must carry `Secure`.
+ *
+ * Deliberately a copy of the helper in session.ts rather than an import of it:
+ * the account tests mock `@/lib/session` wholesale, and a mocked guard is no
+ * guard — the same reason this reads process.env and not the env module. Keep
+ * the two in step.
+ *
+ * Allowlist, not denylist: only an explicit development or test environment may
+ * issue a cookie the browser will send over plain HTTP; every other value gets
+ * `Secure`. Next inlines `process.env.NODE_ENV` at build time, so in a built app
+ * this is hardening at the source, not a branch a deployment can reach.
+ */
+function secureCookies(): boolean {
+  const nodeEnv = process.env.NODE_ENV;
+  return nodeEnv !== "development" && nodeEnv !== "test";
+}
+
 export async function getAccounts(): Promise<AccountsData | null> {
   try {
     const cookieStore = await cookies();
@@ -82,10 +100,9 @@ async function saveAccounts(data: AccountsData): Promise<void> {
     .sign(getSecretKey());
 
   const cookieStore = await cookies();
-  const isProduction = process.env.NODE_ENV === "production";
   cookieStore.set(ACCOUNTS_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: isProduction,
+    secure: secureCookies(),
     sameSite: "lax",
     maxAge: ACCOUNTS_MAX_AGE,
     path: "/",
@@ -119,12 +136,11 @@ async function saveAccountSession(
     .sign(getSecretKey());
 
   const cookieStore = await cookies();
-  const isProduction = process.env.NODE_ENV === "production";
   const cookieName = `${SESSION_COOKIE_NAME}_${getShortPuuid(puuid)}`;
 
   cookieStore.set(cookieName, token, {
     httpOnly: true,
-    secure: isProduction,
+    secure: secureCookies(),
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
     path: "/",
