@@ -14,10 +14,10 @@ import { useEffect } from "react";
  */
 export default function GlobalError({
   error,
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("[Global Error Boundary]", error);
@@ -126,7 +126,7 @@ export default function GlobalError({
             }}
           >
             <button
-              onClick={() => unstable_retry()}
+              onClick={() => retry()}
               style={{
                 padding: "0.75rem 1.5rem",
                 backgroundColor: "#bd93f9",
