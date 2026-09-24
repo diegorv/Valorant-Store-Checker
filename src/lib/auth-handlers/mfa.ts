@@ -16,6 +16,20 @@ export async function handleMfaAuth(
   const result = await submitMfa(body.code, body.cookie);
 
   if (!result.success) {
+    // Riot re-issued the challenge: let the caller prompt for another code
+    // instead of reporting a failure, same as the credentials handler.
+    if ("type" in result) {
+      return NextResponse.json({
+        success: false,
+        requiresMfa: true,
+        cookie: result.cookie,
+        multifactor: result.multifactor,
+        // Set when Riot re-issued the challenge because it refused the last
+        // code; dropped from the JSON when Riot gave no reason.
+        error: result.error,
+      });
+    }
+
     return NextResponse.json(
       { error: result.error || "MFA verification failed" },
       { status: 401 },

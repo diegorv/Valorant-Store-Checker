@@ -85,4 +85,28 @@ describe("handleMfaAuth", () => {
     const body = await res.json();
     expect(body.error).toBe("invalid_code");
   });
+
+  it("submitMfa returns a re-issued MFA challenge -> 200 with requiresMfa:true", async () => {
+    const { submitMfa } = await import("@/lib/riot-auth");
+    vi.mocked(submitMfa).mockResolvedValue({
+      success: false,
+      type: "multifactor",
+      cookie: "asid=re-issued",
+      multifactor: { email: "u@example.com", method: "email" },
+      error: "Riot Auth Error: multifactor_attempt_failed",
+    });
+
+    const res = await handleMfaAuth({
+      type: "multifactor",
+      code: "123456",
+      cookie: "asid=x",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.requiresMfa).toBe(true);
+    expect(body.cookie).toBe("asid=re-issued");
+    // Re-prompting silently would leave the user with nothing to act on.
+    expect(body.error).toBe("Riot Auth Error: multifactor_attempt_failed");
+  });
 });

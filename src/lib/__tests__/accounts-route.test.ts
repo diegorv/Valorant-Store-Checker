@@ -117,24 +117,17 @@ describe("GET /api/accounts (with session)", () => {
     expect(addAccount).not.toHaveBeenCalled();
   });
 
-  it("migrates the guarded session into a missing registry", async () => {
+  it("returns an empty list when no registry exists yet", async () => {
     const { getAccounts, addAccount } = await import("@/lib/accounts");
-    vi.mocked(getAccounts)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        accounts: [{ puuid: "session-puuid", region: "na", addedAt: 1700000000000 }],
-        activePuuid: "session-puuid",
-      });
+    vi.mocked(getAccounts).mockResolvedValue(null);
 
     const res = await GET(makeGetRequest());
 
     expect(res.status).toBe(200);
-    // The migration uses the session handed over by withSession
-    expect(addAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ puuid: "session-puuid", addedAt: 1700000000000 }),
-      expect.objectContaining({ puuid: "session-puuid", accessToken: "token" })
-    );
     const body = await res.json();
-    expect(body.accounts).toHaveLength(1);
+    expect(body.accounts).toEqual([]);
+    // Building the registry here would rotate the caller's session on a read
+    expect(addAccount).not.toHaveBeenCalled();
+    expect(getAccounts).toHaveBeenCalledTimes(1);
   });
 });

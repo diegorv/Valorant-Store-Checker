@@ -13,44 +13,22 @@
 
 import { NextResponse } from "next/server";
 import { withSession } from "@/lib/api-validate";
-import { getAccounts, addAccount, removeAccount } from "@/lib/accounts";
+import { getAccounts, removeAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
 
 /**
  * GET /api/accounts
  * Returns list of stored accounts and which one is active
  */
-export const GET = withSession(async (_request, session, reqId?: string) => {
+export const GET = withSession(async (_request, _session, reqId?: string) => {
   const log = createLogger("Accounts API", reqId);
   try {
-    let registry = await getAccounts();
+    const registry = await getAccounts();
 
-    // Migration: if no registry exists yet, auto-populate it
-    // from the current session
-    if (!registry) {
-      log.info("Migrating existing session to multi-account registry");
-      await addAccount(
-        {
-          puuid: session.puuid,
-          region: session.region,
-          gameName: session.gameName,
-          tagLine: session.tagLine,
-          addedAt: session.createdAt || Date.now(),
-        },
-        {
-          accessToken: session.accessToken,
-          entitlementsToken: session.entitlementsToken,
-          puuid: session.puuid,
-          region: session.region,
-          gameName: session.gameName,
-          tagLine: session.tagLine,
-          country: session.country,
-          riotCookies: session.riotCookies,
-        }
-      );
-      registry = await getAccounts();
-    }
-
+    // A session that predates the registry lists nothing. Building the
+    // registry here would revoke and reissue the caller's session on a read,
+    // signing out every request still in flight with the old cookie; the login
+    // path registers it instead (migrateSessionToRegistry).
     if (!registry) {
       return NextResponse.json({
         accounts: [],

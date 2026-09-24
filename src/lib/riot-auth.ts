@@ -395,6 +395,15 @@ export async function submitMfa(
       riotCookies: string;
       namedCookies: RiotSessionCookies;
     }
+  | {
+      success: false;
+      type: "multifactor";
+      cookie: string;
+      multifactor?: AuthResponse["multifactor"];
+      // Only the MFA step can carry this: a re-issued challenge follows a code
+      // Riot already refused, and its reason is the whole point of the prompt.
+      error?: string;
+    }
   | { success: false; error: string }
 > {
   try {
@@ -425,6 +434,33 @@ export async function submitMfa(
     const mfaData = parseWithLog(AuthResponseSchema, mfaRaw, "AuthResponse");
     if (!mfaData) {
       return { success: false, error: "Invalid MFA response from Riot" };
+    }
+
+    const country = mfaData.country ? ` (Region: ${mfaData.country})` : "";
+
+    // Riot can answer a code with the challenge again (new code sent, another
+    // method). Hand it back so the caller can prompt once more, keeping Riot's
+    // own text when it says why the previous code was refused.
+    if (mfaData.type === "multifactor") {
+      return {
+        success: false,
+        type: "multifactor",
+        cookie: allCookies,
+        multifactor: mfaData.multifactor,
+        error: mfaData.error
+          ? `Riot Auth Error: ${mfaData.error}${country}`
+          : undefined,
+      };
+    }
+
+    // Like the credential step, a rejected code comes back over HTTP 200 with a
+    // typed error body, so the reason is only in `error`.
+    if (mfaData.type !== "response") {
+      const errorDetail = mfaData.error || "Unknown authentication error";
+      return {
+        success: false,
+        error: `Riot Auth Error: ${errorDetail}${country}`,
+      };
     }
 
     // Extract tokens from redirect URI

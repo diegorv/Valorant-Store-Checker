@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { AccountsProvider } from "./AccountsProvider";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,6 +59,15 @@ function installFetch(deleteStatus: number) {
   return fetchMock;
 }
 
+/** The switcher reads its list from the provider the header mounts. */
+function renderSwitcher() {
+  return render(
+    <AccountsProvider isLoggedIn>
+      <AccountSwitcher />
+    </AccountsProvider>,
+  );
+}
+
 function listCalls(fetchMock: ReturnType<typeof vi.fn>) {
   return fetchMock.mock.calls.filter(
     ([, init]) => (init as RequestInit | undefined)?.method !== "DELETE",
@@ -92,7 +102,7 @@ describe("AccountSwitcher — removing an account", () => {
     // route answers 404. The switcher must still refetch and drop the row.
     const fetchMock = installFetch(404);
 
-    render(<AccountSwitcher />);
+    renderSwitcher();
     await openDropdownAndRemove();
 
     await waitFor(() => {
@@ -106,7 +116,7 @@ describe("AccountSwitcher — removing an account", () => {
   it("reconciles the list when the DELETE responds 200", async () => {
     const fetchMock = installFetch(200);
 
-    render(<AccountSwitcher />);
+    renderSwitcher();
     await openDropdownAndRemove();
 
     await waitFor(() => {
@@ -120,7 +130,7 @@ describe("AccountSwitcher — removing an account", () => {
   it("does not refetch when the DELETE fails for a real reason (500)", async () => {
     const fetchMock = installFetch(500);
 
-    render(<AccountSwitcher />);
+    renderSwitcher();
     await openDropdownAndRemove();
 
     // Give any stray refetch a chance to happen before asserting

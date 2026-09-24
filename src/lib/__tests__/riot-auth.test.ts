@@ -657,6 +657,96 @@ describe("submitMfa", () => {
     });
   });
 
+  it("reports the reason Riot sent when it rejects the code over HTTP 200", async () => {
+    server.use(
+      http.put(RIOT_AUTH_URL, () =>
+        HttpResponse.json({ type: "auth", error: "auth_failure", country: "usa" }),
+      ),
+    );
+
+    const { submitMfa } = await import("@/lib/riot-auth");
+    const result = await submitMfa("000000", "asid=mfa-session");
+
+    expect(result).toEqual({
+      success: false,
+      error: "Riot Auth Error: auth_failure (Region: usa)",
+    });
+  });
+
+  it("falls back to a generic reason when the rejection carries no error text", async () => {
+    server.use(http.put(RIOT_AUTH_URL, () => HttpResponse.json({ type: "auth" })));
+
+    const { submitMfa } = await import("@/lib/riot-auth");
+    const result = await submitMfa("000000", "asid=mfa-session");
+
+    expect(result).toEqual({
+      success: false,
+      error: "Riot Auth Error: Unknown authentication error",
+    });
+  });
+
+  it("hands back a re-issued multifactor challenge instead of a missing URI", async () => {
+    server.use(
+      http.put(
+        RIOT_AUTH_URL,
+        () =>
+          new HttpResponse(
+            JSON.stringify({
+              type: "multifactor",
+              multifactor: { email: "u***@example.com", method: "email" },
+            }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Set-Cookie": "ssid=re-issued-ssid; Path=/",
+              },
+            },
+          ),
+      ),
+    );
+
+    const { submitMfa } = await import("@/lib/riot-auth");
+    const result = await submitMfa("123456", "asid=mfa-session");
+
+    // Asserted unguarded for the same reason as the credential path above: a
+    // `if ("type" in result)` guard would pass with the branch deleted.
+    expect(result).toMatchObject({
+      success: false,
+      type: "multifactor",
+      multifactor: { method: "email" },
+    });
+    // Without this cookie the caller cannot submit the next code.
+    expect((result as { cookie: string }).cookie).toContain("asid=mfa-session");
+    expect((result as { cookie: string }).cookie).toContain("ssid=re-issued-ssid");
+    // Riot said nothing about a failure, so no reason may be invented.
+    expect((result as { error?: string }).error).toBeUndefined();
+  });
+
+  it("keeps the reason when the re-issued challenge says why the code failed", async () => {
+    server.use(
+      http.put(RIOT_AUTH_URL, () =>
+        HttpResponse.json({
+          type: "multifactor",
+          error: "multifactor_attempt_failed",
+          country: "usa",
+          multifactor: { email: "u***@example.com", method: "email" },
+        }),
+      ),
+    );
+
+    const { submitMfa } = await import("@/lib/riot-auth");
+    const result = await submitMfa("000000", "asid=mfa-session");
+
+    // The shape that decides both new branches: still a challenge to re-prompt
+    // with, but carrying the text that says the last code was refused.
+    expect(result).toMatchObject({
+      success: false,
+      type: "multifactor",
+      error: "Riot Auth Error: multifactor_attempt_failed (Region: usa)",
+    });
+  });
+
   it("rejects an MFA response that does not match the schema", async () => {
     server.use(http.put(RIOT_AUTH_URL, () => HttpResponse.json({ unexpected: true })));
 

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Button } from "../ui/button";
 import { getSession } from "@/lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { AccountsProvider } from "./AccountsProvider";
 import { WishlistButton } from "./WishlistButton";
 import { NAV_LINKS } from "@/lib/nav";
 import { MobileNav } from "./MobileNav";
@@ -32,30 +33,34 @@ export async function Header() {
           </div>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="group relative py-1 text-sm font-medium text-slate-200 hover:text-brand transition-colors"
-            >
-              {link.label}
-              <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-brand transition-all duration-300 group-hover:w-full" />
-            </Link>
-          ))}
-          {isLoggedIn ? (
-            <div className="flex items-center gap-4">
-              <WishlistButton />
-              <AccountSwitcher />
-            </div>
-          ) : (
-            <Button variant="valorant" size="sm" asChild>
-              <Link href="/login">Login with Riot</Link>
-            </Button>
-          )}
-        </nav>
-        {/* Mobile nav — hidden on desktop */}
-        <MobileNav isLoggedIn={isLoggedIn} />
+        {/* One account list for both switchers — the desktop nav and the
+            always-mounted mobile drawer */}
+        <AccountsProvider isLoggedIn={isLoggedIn}>
+          <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group relative py-1 text-sm font-medium text-slate-200 hover:text-brand transition-colors"
+              >
+                {link.label}
+                <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-brand transition-all duration-300 group-hover:w-full" />
+              </Link>
+            ))}
+            {isLoggedIn ? (
+              <div className="flex items-center gap-4">
+                <WishlistButton />
+                <AccountSwitcher />
+              </div>
+            ) : (
+              <Button variant="valorant" size="sm" asChild>
+                <Link href="/login">Login with Riot</Link>
+              </Button>
+            )}
+          </nav>
+          {/* Mobile nav — hidden on desktop */}
+          <MobileNav isLoggedIn={isLoggedIn} />
+        </AccountsProvider>
       </div>
     </header>
   );
