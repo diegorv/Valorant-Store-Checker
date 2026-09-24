@@ -106,7 +106,7 @@ Same setup, but the image is built from your checkout. Useful when you have loca
 1. Click [**Deploy with Vercel**](https://vercel.com/new/clone?repository-url=https://github.com/diegorv/Valorant-Store-Checker), or import the repo at [vercel.com/new](https://vercel.com/new).
 2. Add the following environment variables in the Vercel project settings:
    - `SESSION_SECRET` ← required
-   - `ENCRYPTION_KEY` ← strongly recommended
+   - `ENCRYPTION_KEY` ← required
    - `HENRIK_API_KEY` ← optional (rank data)
    - `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` ← for persistent sessions across deployments
    - Upstash Redis ← required (cache + auth rate limiting)
@@ -138,17 +138,17 @@ Reference for every variable the app reads. `.env.example` at the repository roo
 
 ### Required
 
-| Variable         | Description                                                                        |
-| ---------------- | ---------------------------------------------------------------------------------- |
-| `SESSION_SECRET` | Secret for signing session JWTs. Min 32 chars. Generate: `openssl rand -base64 32` |
+| Variable         | Description                                                                                                                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET` | Secret for signing session JWTs. Min 32 chars. Generate: `openssl rand -base64 32`                                                                                                                                    |
+| `ENCRYPTION_KEY` | AES-256-GCM key for encrypting Riot cookies at rest. **Must be 64 hex chars (32 bytes).** Required outside development and test. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 
 ### Recommended
 
 | Variable         | Description                                                                                                                                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ENCRYPTION_KEY` | AES-256-GCM key for encrypting Riot cookies at rest. **Must be 64 hex chars (32 bytes).** Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `HENRIK_API_KEY` | [HenrikDev API](https://docs.henrikdev.xyz) key for rank and level data. The app degrades gracefully without it.                                                               |
-| `LOG_LEVEL`      | Minimum log level: `debug`, `info`, `warn` or `error` (default: `warn` in production)                                                                                          |
+| `LOG_LEVEL`      | Minimum log level: `debug`, `info`, `warn` or `error` (default: `debug` in development and test, `warn` everywhere else)                                                       |
 
 ### Database (Production)
 

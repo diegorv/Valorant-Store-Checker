@@ -32,6 +32,24 @@ const log = createLogger("session");
 
 const SESSION_COOKIE_NAME = "valorant_session";
 
+/**
+ * Whether the session cookie must carry `Secure`.
+ *
+ * Allowlist, not denylist: only an explicit development or test environment may
+ * issue a cookie the browser will send over plain HTTP; every other value gets
+ * `Secure`. Next inlines `process.env.NODE_ENV` at build time — "development"
+ * for `next dev`, "production" for every other command — so in a built app this
+ * is hardening at the source, not a branch a deployment can reach. Read from
+ * process.env, never from the env module: the test suite mocks that module, and
+ * a mocked guard is no guard.
+ *
+ * accounts.ts keeps its own copy for that same reason. Change both together.
+ */
+function secureCookies(): boolean {
+  const nodeEnv = process.env.NODE_ENV;
+  return nodeEnv !== "development" && nodeEnv !== "test";
+}
+
 // ---------------------------------------------------------------------------
 // Module-level LRU cache for Route Handler session deduplication
 //
@@ -172,10 +190,9 @@ export async function createSession(tokens: {
 
   // 7. Set Cookie
   const cookieStore = await cookies();
-  const isProduction = process.env.NODE_ENV === "production";
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: isProduction,
+    secure: secureCookies(),
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
     path: "/",
@@ -337,7 +354,7 @@ export async function refreshSession(): Promise<boolean> {
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value ?? '';
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
     path: "/",

@@ -5,8 +5,8 @@
  * Each logger instance is tagged with a context label (e.g., "riot-auth", "riot-store").
  *
  * Log levels: debug < info < warn < error
- * - In production, only warn/error are emitted by default.
- * - In development, all levels are active.
+ * - In development and test, all levels are active.
+ * - Everywhere else, only warn/error are emitted by default.
  *
  * Usage:
  *   import { createLogger } from "@/lib/logger";
@@ -27,15 +27,22 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 
 /**
  * Minimum log level threshold.
- * - production  → "warn"  (only warn + error are emitted)
- * - development → "debug" (everything is emitted)
+ * - development / test → "debug" (everything is emitted)
+ * - anything else      → "warn"  (only warn + error are emitted)
  *
  * Override via LOG_LEVEL env var if needed.
  */
 function getMinLevel(): LogLevel {
   const envLevel = process.env.LOG_LEVEL as LogLevel | undefined;
   if (envLevel && envLevel in LOG_LEVELS) return envLevel;
-  return process.env.NODE_ENV === "production" ? "warn" : "debug";
+  // Allowlist, not denylist: anything that is not explicitly development or
+  // test must not default to debug — that is the level that puts token and
+  // cookie material in the logs. Next inlines `process.env.NODE_ENV` at build
+  // time, so in a built app this is hardening at the source. Read from
+  // process.env, never from the env module: the test suite mocks that module,
+  // and a mocked guard is no guard.
+  const nodeEnv = process.env.NODE_ENV;
+  return nodeEnv === "development" || nodeEnv === "test" ? "debug" : "warn";
 }
 
 export interface Logger {
