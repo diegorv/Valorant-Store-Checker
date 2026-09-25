@@ -16,14 +16,6 @@ function isValidUuid(id: string): boolean {
   return UUID_REGEX.test(id);
 }
 
-/** Sentinel thrown when a session is not found in the DB — callers treat this as a null return */
-export class SessionNotFoundError extends Error {
-  constructor(sessionId: string) {
-    super(`Session not found: ${sessionId}`);
-    this.name = 'SessionNotFoundError';
-  }
-}
-
 /** Thrown when a sessionId fails UUID format validation */
 export class InvalidSessionIdError extends TypeError {
   constructor(sessionId: string) {
@@ -175,8 +167,9 @@ export async function cleanupExpiredSessions(): Promise<void> {
 
 /**
  * In-place UPDATE of session expiration.
- * Used by refreshSession() to extend session lifetime without
- * creating a new sessionId (avoids delete+insert race condition).
+ * Extends session lifetime without creating a new sessionId (avoids
+ * delete+insert race condition). No production caller: see the
+ * sliding-sessions open question in ARCHITECTURE.md.
  */
 export async function refreshSessionExpiration(sessionId: string, maxAgeSeconds: number): Promise<void> {
   if (!isValidUuid(sessionId)) throw new InvalidSessionIdError(sessionId);

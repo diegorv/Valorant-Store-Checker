@@ -119,12 +119,6 @@ export function getRiotLoginUrl(): string {
   return `${RIOT_AUTH_URL}?${params.toString()}`;
 }
 
-export interface CompleteAuthResult {
-  success: boolean;
-  tokens?: AuthTokens;
-  error?: string;
-}
-
 /**
  * Processes the redirect URL from browser login to complete authentication
  * @param url The full redirect URL containing access_token in hash

@@ -112,23 +112,6 @@ export interface RiotWallet {
   };
 }
 
-/**
- * Offer from the store containing price and reward info
- */
-export interface RiotStoreOffer {
-  OfferID: string;
-  IsDirectPurchase: boolean;
-  StartDate: string;
-  Cost: {
-    [currencyID: string]: number;
-  };
-  Rewards: Array<{
-    ItemTypeID: string;
-    ItemID: string;
-    Quantity: number;
-  }>;
-}
-
 // ============================================
 // Valorant-API.com Types
 // ============================================

@@ -21,8 +21,7 @@ import { randomUUID } from "crypto";
 import {
   saveSessionToStore,
   getSessionFromStore,
-  deleteSessionFromStore,
-  refreshSessionExpiration
+  deleteSessionFromStore
 } from "./session-store";
 import type { StoredSession as SessionData } from "./schemas/session";
 import { ESSENTIAL_COOKIE_NAMES } from "./constants";
@@ -339,29 +338,6 @@ export async function deleteSession(): Promise<void> {
   await revokeCurrentSession();
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
-}
-
-export async function refreshSession(): Promise<boolean> {
-  const result = await getSessionInternal();
-  if (!result) return false;
-
-  const { sessionId } = result;
-
-  // Update expires_at in-place — no new sessionId needed
-  await refreshSessionExpiration(sessionId, SESSION_MAX_AGE);
-
-  // Update cookie maxAge (preserve existing JWT token)
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value ?? '';
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: secureCookies(),
-    sameSite: "lax",
-    maxAge: SESSION_MAX_AGE,
-    path: "/",
-  });
-
-  return true;
 }
 
 /**

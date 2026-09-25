@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { WishlistItem } from "@/types/wishlist";
@@ -39,7 +38,6 @@ function WishlistSkinCard({
   onRemove: (skinUuid: string) => void;
 }) {
   const skin = toSkin(item);
-  const [_optimisticOwned] = useState(isOwned);
 
   return (
     <div role="article" aria-label={`${item.displayName}${isOwned ? ", owned" : ""}`}>

@@ -9,4 +9,4 @@ export { handleCredentialsAuth } from "./credentials";
 export { handleMfaAuth } from "./mfa";
 export { handleUrlAuth } from "./url";
 export { handleCookieAuth } from "./cookie";
-export { AuthBodySchema, type AuthBody } from "./shared";
+export { AuthBodySchema } from "./shared";
