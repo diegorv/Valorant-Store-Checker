@@ -68,11 +68,12 @@ describe("mergeCookies", () => {
     expect(mergeCookies("ssid=abc123; ", [])).toBe("ssid=abc123");
   });
 
-  it("handles value with spaces and special chars", () => {
-    // Space in value is fine — split is on "; " not "="
+  it("keeps a value with spaces and treats the rest of the header as attributes", () => {
+    // Space in value is fine. What follows the first ";" of a Set-Cookie header
+    // is an attribute, not a second cookie, so clid=def is not stored.
     const result = mergeCookies("", ["ssid=val ue; clid=def"]);
-    expect(result).toContain("ssid=val ue");
-    expect(result).toContain("clid=def");
+    expect(result).toBe("ssid=val ue");
+    expect(result).not.toContain("clid");
   });
 
   it("handles empty-named cookie value (ssid=)", () => {
@@ -81,6 +82,60 @@ describe("mergeCookies", () => {
     const result = mergeCookies("ssid=; clid=def", []);
     expect(result).toContain("ssid=");
     expect(result).toContain("clid=def");
+  });
+
+  it("adds only the cookie from a full Set-Cookie header, not its attributes", () => {
+    const result = mergeCookies("", [
+      "ssid=new; Path=/; Domain=auth.riotgames.com; Max-Age=3600; SameSite=None; Secure",
+    ]);
+    expect(result).toBe("ssid=new");
+    expect(result).not.toContain("Path");
+    expect(result).not.toContain("Domain");
+    expect(result).not.toContain("Max-Age");
+    expect(result).not.toContain("SameSite");
+    expect(result).not.toContain("Secure");
+  });
+
+  it("drops an Expires attribute rather than storing it as a cookie", () => {
+    const result = mergeCookies("clid=x", [
+      "tdid=t; Expires=Wed, 21 Oct 2099 07:28:00 GMT; Path=/",
+    ]);
+    expect(result).toBe("clid=x; tdid=t");
+    expect(result).not.toContain("Expires");
+  });
+
+  it("removes a cookie cleared with an empty value and Max-Age=0", () => {
+    const result = mergeCookies("ssid=old; clid=x", ["ssid=; Max-Age=0; Path=/"]);
+    expect(result).toBe("clid=x");
+    expect(result).not.toContain("ssid");
+  });
+
+  it("removes a cookie whose Max-Age is negative, whatever the attribute case", () => {
+    const result = mergeCookies("ssid=old; clid=x", ["ssid=gone; max-age=-1"]);
+    expect(result).toBe("clid=x");
+  });
+
+  it("removes a cookie whose Expires is in the past", () => {
+    const result = mergeCookies("ssid=old; clid=x", [
+      "ssid=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/",
+    ]);
+    expect(result).toBe("clid=x");
+    expect(result).not.toContain("ssid");
+  });
+
+  it("keeps a cookie with a future Max-Age", () => {
+    const result = mergeCookies("ssid=old; clid=x", ["ssid=fresh; Max-Age=3600; Path=/"]);
+    expect(result).toBe("ssid=fresh; clid=x");
+  });
+
+  it("ignores a Set-Cookie header that carries no name=value pair", () => {
+    expect(mergeCookies("clid=x", ["garbage; Secure"])).toBe("clid=x");
+  });
+
+  it("keeps a cookie set with an empty value but no expiry", () => {
+    // Only an expiry deletes; an empty value on its own is still a cookie.
+    const result = mergeCookies("ssid=old; clid=x", ["ssid=; Path=/"]);
+    expect(result).toBe("ssid=; clid=x");
   });
 });
 

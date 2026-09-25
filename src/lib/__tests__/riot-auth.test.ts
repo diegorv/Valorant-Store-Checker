@@ -622,6 +622,60 @@ describe("authenticateRiotAccount — success payload", () => {
 // ---------------------------------------------------------------------------
 
 describe("submitMfa", () => {
+  it("sends Riot only cookie pairs on the MFA submission, never Set-Cookie attributes", async () => {
+    // The credential step answers with a full Set-Cookie; its merged cookie goes
+    // to the client and comes back verbatim as the MFA request's Cookie header.
+    server.use(
+      http.put(
+        RIOT_AUTH_URL,
+        () =>
+          new HttpResponse(
+            JSON.stringify({
+              type: "multifactor",
+              multifactor: { email: "u***@example.com", method: "email" },
+            }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Set-Cookie":
+                  "ssid=mfa-stage-ssid; Path=/; Domain=auth.riotgames.com; Max-Age=3600; SameSite=None; Secure; HttpOnly",
+              },
+            },
+          ),
+        { once: true },
+      ),
+    );
+
+    const { authenticateRiotAccount, submitMfa } = await import("@/lib/riot-auth");
+    const challenge = await authenticateRiotAccount("user", "pass");
+    const cookie = (challenge as { cookie: string }).cookie;
+
+    // Read the header at the fetch call, not in the handler: MSW's own cookie
+    // store appends every stored Set-Cookie, attributes and all, to the request
+    // before a handler sees it.
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    server.use(
+      http.put(RIOT_AUTH_URL, () =>
+        HttpResponse.json({
+          type: "response",
+          response: { parameters: { uri: VALID_URI } },
+        }),
+      ),
+    );
+
+    try {
+      await submitMfa("123456", cookie);
+      const mfaInit = fetchSpy.mock.calls[0]?.[1];
+      const sentCookie = (mfaInit?.headers as Record<string, string>).Cookie;
+
+      expect(sentCookie).toBe("asid=init-session-id; ssid=mfa-stage-ssid");
+      expect(sentCookie).not.toMatch(/Path|Domain|Max-Age|SameSite|Expires|Secure|HttpOnly/i);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it("returns tokens when Riot accepts the code", async () => {
     server.use(putRespondingWithUri(VALID_URI, "ssid=post-mfa-ssid; Path=/"));
 
