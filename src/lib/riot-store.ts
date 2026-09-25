@@ -221,7 +221,7 @@ export async function fetchWithShardFallback(
     }
     log.warn(`Shard ${preferred.toUpperCase()} failed with ${response.status}, trying other shards`);
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith("Request failed with status")) throw err;
+    if (err instanceof RiotStoreHttpError) throw err;
     log.warn(`Network error on ${preferred.toUpperCase()}, trying other shards:`, err);
   }
 

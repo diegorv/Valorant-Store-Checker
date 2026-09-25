@@ -150,7 +150,29 @@ export async function hydrateNightMarket(
     const basePrice = offer.Cost[CURRENCY_IDS.VP] || 0;
     const discountedPrice = bonusOffer.DiscountCosts[CURRENCY_IDS.VP] || 0;
     const discountPercent = bonusOffer.DiscountPercent;
-    if (!skin) return null;
+
+    if (!skin) {
+      log.warn("Night Market skin %s not found in catalog — using placeholder", skinUuid);
+      return {
+        uuid: skinUuid,
+        displayName: "Unknown Skin",
+        displayIcon: "",
+        streamedVideo: null,
+        wallpaper: null,
+        blurDataURL: getBlurDataURL(null),
+        basePrice,
+        discountedPrice,
+        discountPercent,
+        currencyId: CURRENCY_IDS.VP,
+        tierUuid: null,
+        tierName: null,
+        tierColor: DEFAULT_TIER_COLOR,
+        chromaCount: 0,
+        levelCount: 0,
+        assetPath: "",
+        isSeen: bonusOffer.IsSeen,
+      };
+    }
 
     const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
     const tierColor = tier

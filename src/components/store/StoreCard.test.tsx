@@ -90,7 +90,7 @@ describe("StoreCard", () => {
       const onWishlistToggle = vi.fn();
       const user = userEvent.setup();
 
-      render(
+      const { container } = render(
         <StoreCard
           item={mockStoreItem}
           isWishlisted={false}
@@ -98,7 +98,7 @@ describe("StoreCard", () => {
         />
       );
 
-      const heartButton = screen.getByRole("button", { name: /add to wishlist/i });
+      const heartButton = within(container).getByRole("button", { name: /add to wishlist/i });
       await user.click(heartButton);
 
       expect(onWishlistToggle).toHaveBeenCalledWith(
@@ -107,7 +107,9 @@ describe("StoreCard", () => {
       );
     });
 
-    it("reconciles with the prop when the parent rolls a rejected toggle back", async () => {
+    // The heart shows only the parent's state: the parent flips it when a request
+    // starts and rolls it back on rejection. A click alone changes nothing here.
+    it("shows the parent's state, following its optimistic update and rollback", async () => {
       const user = userEvent.setup();
       const onWishlistToggle = vi.fn();
 
@@ -121,7 +123,7 @@ describe("StoreCard", () => {
 
       const card = within(container);
       await user.click(card.getByRole("button", { name: /add to wishlist/i }));
-      expect(card.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
+      expect(card.getByRole("button", { name: /add to wishlist/i })).toBeTruthy();
 
       // Parent applies its own optimistic update
       rerender(
@@ -131,6 +133,7 @@ describe("StoreCard", () => {
           onWishlistToggle={onWishlistToggle}
         />
       );
+      expect(card.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
 
       // Server rejected it — parent rolls back to the real state
       rerender(
@@ -146,9 +149,8 @@ describe("StoreCard", () => {
   });
 
   // End-to-end over the real tree (useWishlist -> StoreGrid -> StoreCard).
-  // The two halves of the fix only produce the user-visible behaviour together:
-  // the hook must actually roll the rejected toggle back, and the card must stop
-  // pinning its optimistic override. Each half alone leaves the heart lying.
+  // The card shows only the hook's state, so the hook's rollback is what puts
+  // the heart back.
   describe("Server rejection reverts the heart (integration with useWishlist)", () => {
     function WishlistHarness({ initialUuids }: { initialUuids: string[] }) {
       const { wishlistedUuids, toggleWishlist } = useWishlist(initialUuids);

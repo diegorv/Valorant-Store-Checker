@@ -9,7 +9,10 @@ import { RiotSessionCookies } from "./riot-auth";
 
 /**
  * Merges existing cookies with new set-cookie headers.
- * New cookies with the same name override old ones.
+ * New cookies with the same name override old ones. Only each header's leading
+ * name=value pair is a cookie; the rest are attributes. A header whose Max-Age
+ * is zero or negative, or whose Expires is in the past, deletes the cookie.
+ * An empty value alone does not delete.
  */
 export function mergeCookies(existing: string, newSetCookieHeaders: string[]): string {
   const cookieMap = new Map<string, string>();
@@ -24,15 +27,30 @@ export function mergeCookies(existing: string, newSetCookieHeaders: string[]): s
 
   // Override with new cookies
   for (const header of newSetCookieHeaders) {
-    for (const cookiePart of header.split("; ")) {
-      const eqIdx = cookiePart.indexOf("=");
-      if (eqIdx > 0) {
-        cookieMap.set(cookiePart.substring(0, eqIdx), cookiePart);
-      }
+    const [first = "", ...attributes] = header.split(";");
+    const cookiePart = first.trim();
+    const eqIdx = cookiePart.indexOf("=");
+    if (eqIdx <= 0) continue;
+    const name = cookiePart.substring(0, eqIdx);
+    if (attributes.some(isExpiryInPast)) {
+      cookieMap.delete(name);
+    } else {
+      cookieMap.set(name, cookiePart);
     }
   }
 
   return Array.from(cookieMap.values()).join("; ");
+}
+
+/** True for a Max-Age of zero or less, or an Expires date already past. */
+function isExpiryInPast(attribute: string): boolean {
+  const eqIdx = attribute.indexOf("=");
+  if (eqIdx <= 0) return false;
+  const key = attribute.substring(0, eqIdx).trim().toLowerCase();
+  const value = attribute.substring(eqIdx + 1).trim();
+  if (key === "max-age") return Number(value) <= 0;
+  if (key === "expires") return Date.parse(value) <= Date.now();
+  return false;
 }
 
 /**

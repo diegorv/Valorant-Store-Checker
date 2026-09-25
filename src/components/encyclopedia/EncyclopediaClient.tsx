@@ -16,6 +16,12 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
   // Skins the user toggled. The mount fetch's payload can predate a toggle, so
   // the local state wins for these when that payload lands
   const locallyToggled = useRef<Set<string>>(new Set());
+  // Written together with the state, so a queued toggle reads what the
+  // previous request left rather than a render's closure
+  const currentWishlist = useRef<Set<string>>(new Set());
+  // Requests for one skin run one at a time, so the server commits them in
+  // click order and each rollback restores the state its own request started from
+  const toggleChains = useRef<Map<string, Promise<void>>>(new Map());
 
   // Precompute weapon categories (sorted unique weapon names from skins)
   const weaponCategories = useMemo(() => {
@@ -47,17 +53,17 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
         if (res.ok) {
           const data = await res.json();
           const serverUuids: string[] = data.items.map((i: WishlistItem) => i.skinUuid);
-          setWishlistSet((prev) => {
-            const next = new Set<string>(serverUuids);
-            for (const skinUuid of locallyToggled.current) {
-              if (prev.has(skinUuid)) {
-                next.add(skinUuid);
-              } else {
-                next.delete(skinUuid);
-              }
+          const prev = currentWishlist.current;
+          const next = new Set<string>(serverUuids);
+          for (const skinUuid of locallyToggled.current) {
+            if (prev.has(skinUuid)) {
+              next.add(skinUuid);
+            } else {
+              next.delete(skinUuid);
             }
-            return next;
-          });
+          }
+          currentWishlist.current = next;
+          setWishlistSet(next);
         }
       } catch {
         // Silently ignore network errors
@@ -68,60 +74,63 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
     fetchWishlist();
   }, []);
 
-  const toggleWishlist = async (skinUuid: string, skin: EncyclopediaSkin) => {
-    const isCurrentlyWishlisted = wishlistSet.has(skinUuid);
-    const method = isCurrentlyWishlisted ? "DELETE" : "POST";
-    const body = isCurrentlyWishlisted
-      ? { skinUuid }
-      : { skinUuid, displayName: skin.displayName, displayIcon: skin.displayIcon, tierColor: skin.tierColor };
+  const toggleWishlist = (skinUuid: string, skin: EncyclopediaSkin) => {
+    const performToggle = async () => {
+      // Direction is decided when the request starts: a click made while an
+      // earlier request was in flight flips whatever state that one left
+      const isCurrentlyWishlisted = currentWishlist.current.has(skinUuid);
+      const method = isCurrentlyWishlisted ? "DELETE" : "POST";
+      const body = isCurrentlyWishlisted
+        ? { skinUuid }
+        : { skinUuid, displayName: skin.displayName, displayIcon: skin.displayIcon, tierColor: skin.tierColor };
 
-    locallyToggled.current.add(skinUuid);
+      locallyToggled.current.add(skinUuid);
 
-    // Optimistic update
-    setWishlistSet((prev) => {
-      const next = new Set(prev);
-      if (isCurrentlyWishlisted) {
-        next.delete(skinUuid);
-      } else {
-        next.add(skinUuid);
-      }
-      return next;
-    });
-
-    try {
-      const res = await fetch("/api/wishlist", {
-        method,
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        // Revert optimistic update on failure — a rejected toggle carries no
-        // intent worth keeping over the fetched wishlist
-        locallyToggled.current.delete(skinUuid);
-        setWishlistSet((prev) => {
-          const next = new Set(prev);
-          if (isCurrentlyWishlisted) {
-            next.add(skinUuid);
-          } else {
-            next.delete(skinUuid);
-          }
-          return next;
-        });
-      }
-    } catch {
-      // Revert on network error
-      locallyToggled.current.delete(skinUuid);
-      setWishlistSet((prev) => {
-        const next = new Set(prev);
-        if (isCurrentlyWishlisted) {
+      const setWishlisted = (wishlisted: boolean) => {
+        const next = new Set(currentWishlist.current);
+        if (wishlisted) {
           next.add(skinUuid);
         } else {
           next.delete(skinUuid);
         }
-        return next;
-      });
-    }
+        currentWishlist.current = next;
+        setWishlistSet(next);
+      };
+
+      // Optimistic update
+      setWishlisted(!isCurrentlyWishlisted);
+
+      try {
+        const res = await fetch("/api/wishlist", {
+          method,
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          // Revert optimistic update on failure — a rejected toggle carries no
+          // intent worth keeping over the fetched wishlist
+          locallyToggled.current.delete(skinUuid);
+          setWishlisted(isCurrentlyWishlisted);
+        }
+      } catch {
+        // Revert on network error
+        locallyToggled.current.delete(skinUuid);
+        setWishlisted(isCurrentlyWishlisted);
+      }
+    };
+
+    // A click made while this skin's request is in flight shows no change,
+    // here or on the card, until the previous request settles. With none in
+    // flight it starts right away, so the optimistic update lands inside the
+    // click handler
+    const previous = toggleChains.current.get(skinUuid);
+    const run = previous ? previous.then(performToggle) : performToggle();
+    toggleChains.current.set(skinUuid, run);
+    void run.finally(() => {
+      if (toggleChains.current.get(skinUuid) === run) toggleChains.current.delete(skinUuid);
+    });
+    return run;
   };
 
   return (

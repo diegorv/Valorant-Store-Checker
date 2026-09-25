@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import Image from "next/image";
 import type { StoreItem } from "../../types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -22,18 +22,7 @@ export const StoreCard = memo(({
 }: StoreCardProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
-  // Track optimistic override separately from prop-derived state
-  const [optimisticOverride, setOptimisticOverride] = useState<boolean | null>(null);
   const [isPulsing, setIsPulsing] = useState(false);
-
-  // Derived display state: optimistic override takes precedence, otherwise use prop
-  const displayIsWishlisted = optimisticOverride ?? isWishlisted;
-
-  // Drop the override once the prop reports a new authoritative value, so a
-  // toggle the server rejected (and the parent rolled back) is reflected here
-  useEffect(() => {
-    setOptimisticOverride(null);
-  }, [isWishlisted]);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -58,8 +47,6 @@ export const StoreCard = memo(({
 
     if (!onWishlistToggle) return;
 
-    // Optimistic UI update — set override to opposite of current display state
-    setOptimisticOverride(!displayIsWishlisted);
     setIsPulsing(true);
     setTimeout(() => setIsPulsing(false), 300);
 
@@ -97,15 +84,15 @@ export const StoreCard = memo(({
             <button
               onClick={handleHeartClick}
               className={`absolute top-3 right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 ${
-                displayIsWishlisted
+                isWishlisted
                   ? "bg-brand/20 hover:bg-brand/30"
                   : "bg-void-deep/80 hover:bg-void-surface"
               } ${isPulsing ? "scale-125" : "scale-100"}`}
-              aria-label={displayIsWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             >
               <svg
                 className={`w-5 h-5 transition-all duration-300 ${
-                  displayIsWishlisted ? "fill-brand scale-110" : "fill-none stroke-zinc-400"
+                  isWishlisted ? "fill-brand scale-110" : "fill-none stroke-zinc-400"
                 }`}
                 viewBox="0 0 24 24"
                 strokeWidth="2"
