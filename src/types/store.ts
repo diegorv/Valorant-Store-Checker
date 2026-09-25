@@ -112,28 +112,6 @@ export interface BundleData {
 }
 
 /**
- * Loading states for store data
- */
-export type StoreLoadingState = "idle" | "loading" | "success" | "error";
-
-/**
- * Store error types
- */
-export interface StoreError {
-  code: "UNAUTHORIZED" | "RIOT_API_ERROR" | "HYDRATION_ERROR" | "NETWORK_ERROR" | "UNKNOWN";
-  message: string;
-  details?: unknown;
-}
-
-/**
- * Store fetch options
- */
-export interface StoreFetchOptions {
-  includeWallet?: boolean;
-  includeNightMarket?: boolean;
-}
-
-/**
  * Rarity tier configuration for UI display
  */
 export const TIER_COLORS: Record<string, string> = {

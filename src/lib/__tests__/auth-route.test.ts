@@ -60,7 +60,7 @@ vi.mock("@/lib/rate-limit-utils", () => ({
 // Dynamic import of route AFTER mocks
 // ---------------------------------------------------------------------------
 
-const { POST } = await import("@/app/api/auth/route");
+const { POST, GET, PUT, DELETE, PATCH } = await import("@/app/api/auth/route");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,7 +141,23 @@ describe("POST /api/auth — credentials branch (type: auth)", () => {
 
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBeTruthy();
+    expect(body).toEqual({ error: "auth_failure", code: "UNAUTHORIZED" });
+  });
+
+  it("unexpected throw → 500 with a code", async () => {
+    const { authenticateRiotAccount } = await import("@/lib/riot-auth");
+    vi.mocked(authenticateRiotAccount).mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(
+      makeAuthRequest({ type: "auth", username: "user", password: "pass" }),
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "Internal server error during authentication",
+      code: "INTERNAL_ERROR",
+    });
   });
 });
 
@@ -228,6 +244,7 @@ describe("POST /api/auth — invalid body", () => {
   it("unknown type returns 400 (Zod discriminatedUnion validation fails)", async () => {
     const res = await POST(makeAuthRequest({ type: "invalid" }));
     expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: expect.any(String), code: "VALIDATION_ERROR" });
   });
 
   it("launch_browser type returns 400 (variant removed from the schema)", async () => {
@@ -276,5 +293,22 @@ describe("POST /api/auth — rate limiting", () => {
 
     expect(res.status).toBe(200);
     expect(addRateLimitHeaders).toHaveBeenCalled();
+  });
+});
+
+describe("/api/auth — methods other than POST", () => {
+  it.each([
+    ["GET", GET],
+    ["PUT", PUT],
+    ["DELETE", DELETE],
+    ["PATCH", PATCH],
+  ])("%s → 405 with a code", async (_method, handler) => {
+    const res = await handler();
+
+    expect(res.status).toBe(405);
+    expect(await res.json()).toEqual({
+      error: "Method not allowed. Use POST for authentication.",
+      code: "METHOD_NOT_ALLOWED",
+    });
   });
 });

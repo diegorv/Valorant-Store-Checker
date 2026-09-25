@@ -8,8 +8,9 @@
  * - POST /api/auth — Login with credentials, MFA, URL, or cookie
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { parseBody } from "@/lib/api-validate";
+import { errorResponse, serverErrorResponse } from "@/lib/api-error";
 import { createLogger } from "@/lib/logger";
 import {
   AuthBodySchema,
@@ -60,39 +61,33 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     log.error("Unhandled error:", error);
-    const response = NextResponse.json(
-      { error: "Internal server error during authentication" },
-      { status: 500 },
-    );
+    const response = serverErrorResponse("Internal server error during authentication");
     return addRateLimitHeaders(response, { limit, remaining, reset });
   }
 }
 
 // Reject all other methods
-export async function GET() {
-  return NextResponse.json(
-    { error: "Method not allowed. Use POST for authentication." },
-    { status: 405 },
+function methodNotAllowed() {
+  return errorResponse(
+    "Method not allowed. Use POST for authentication.",
+    "METHOD_NOT_ALLOWED",
+    undefined,
+    405,
   );
+}
+
+export async function GET() {
+  return methodNotAllowed();
 }
 
 export async function PUT() {
-  return NextResponse.json(
-    { error: "Method not allowed. Use POST for authentication." },
-    { status: 405 },
-  );
+  return methodNotAllowed();
 }
 
 export async function DELETE() {
-  return NextResponse.json(
-    { error: "Method not allowed. Use POST for authentication." },
-    { status: 405 },
-  );
+  return methodNotAllowed();
 }
 
 export async function PATCH() {
-  return NextResponse.json(
-    { error: "Method not allowed. Use POST for authentication." },
-    { status: 405 },
-  );
+  return methodNotAllowed();
 }

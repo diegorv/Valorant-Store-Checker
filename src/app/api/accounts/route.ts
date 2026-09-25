@@ -13,6 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { withSession } from "@/lib/api-validate";
+import { errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/api-error";
 import { getAccounts, removeAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
 
@@ -50,10 +51,7 @@ export const GET = withSession(async (_request, _session, reqId?: string) => {
     });
   } catch (error) {
     log.error("Failed to get accounts:", error);
-    return NextResponse.json(
-      { error: "Failed to retrieve accounts" },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to retrieve accounts");
   }
 });
 
@@ -68,20 +66,14 @@ export const DELETE = withSession(async (request, _session, reqId?: string) => {
     const puuid = searchParams.get("puuid");
 
     if (!puuid) {
-      return NextResponse.json(
-        { error: "PUUID is required" },
-        { status: 400 }
-      );
+      return errorResponse("PUUID is required", "VALIDATION_ERROR");
     }
 
     // Remove account (handles active account switching automatically)
     const removed = await removeAccount(puuid);
 
     if (!removed) {
-      return NextResponse.json(
-        { error: "Account not found" },
-        { status: 404 }
-      );
+      return notFoundResponse("Account");
     }
 
     log.info(`Removed account ${puuid.substring(0, 8)}`);
@@ -92,9 +84,6 @@ export const DELETE = withSession(async (request, _session, reqId?: string) => {
     });
   } catch (error) {
     log.error("Failed to remove account:", error);
-    return NextResponse.json(
-      { error: "Failed to remove account" },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to remove account");
   }
 });

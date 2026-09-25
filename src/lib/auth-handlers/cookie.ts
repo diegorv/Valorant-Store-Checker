@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { errorResponse } from "@/lib/api-error";
 import { registerAuthenticatedSession } from "./shared";
 import type { AuthBody } from "./shared";
 
@@ -18,10 +19,7 @@ export async function handleCookieAuth(
   const result = await refreshTokensWithCookies(body.cookie);
 
   if (!result.success) {
-    return NextResponse.json(
-      { error: result.error || "Failed to authenticate with cookies" },
-      { status: 401 },
-    );
+    return errorResponse(result.error || "Failed to authenticate with cookies", "UNAUTHORIZED", undefined, 401);
   }
 
   await registerAuthenticatedSession(result.tokens, result.riotCookies ?? "");

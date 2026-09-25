@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "./env";
+import { rateLimitResponse } from "./api-error";
 
 /**
  * Extracts the client IP from a Next.js request or headers object.
@@ -90,7 +91,7 @@ export function addRateLimitHeaders(
 
 /**
  * Creates a 429 Too Many Requests response with rate limit headers
- * and a calculated retryAfter value.
+ * and a calculated Retry-After header.
  */
 export function createRateLimitedResponse(rateLimitData: {
   limit: number;
@@ -102,13 +103,5 @@ export function createRateLimitedResponse(rateLimitData: {
     Math.ceil((rateLimitData.reset - Date.now()) / 1000)
   );
 
-  const response = NextResponse.json(
-    {
-      error: "Too many authentication attempts. Please try again later.",
-      retryAfter,
-    },
-    { status: 429 }
-  );
-
-  return addRateLimitHeaders(response, rateLimitData);
+  return addRateLimitHeaders(rateLimitResponse(retryAfter), rateLimitData);
 }

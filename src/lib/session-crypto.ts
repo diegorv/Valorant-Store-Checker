@@ -64,7 +64,8 @@ export function decrypt(encryptedValue: string, keyHex: string): string {
   const authTag = Buffer.from(authTagHex, 'hex');
   const ciphertext = Buffer.from(ciphertextHex, 'hex');
 
-  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  // authTagLength makes setAuthTag reject a truncated tag, which Node 22/24 otherwise accept.
+  const decipher = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   decipher.setAuthTag(authTag);
 
   const decrypted = Buffer.concat([

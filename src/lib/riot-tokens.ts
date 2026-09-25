@@ -71,9 +71,6 @@ export function createRiotHeaders(
   };
 }
 
-/** @deprecated Use createRiotHeaders — kept for backwards compatibility */
-export const riotHeaders = createRiotHeaders;
-
 /**
  * Extracts access_token and id_token from redirect URI fragment
  * @param uri Redirect URI containing tokens in fragment

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { SessionData } from "@/lib/schemas/session";
 
 // ---------------------------------------------------------------------------
 // Mocks — all declared before any imports (vi.mock is hoisted)
@@ -15,13 +14,11 @@ vi.mock("@/lib/env", () => ({
 const mockSaveSessionToStore = vi.fn();
 const mockGetSessionFromStore = vi.fn();
 const mockDeleteSessionFromStore = vi.fn();
-const mockRefreshSessionExpiration = vi.fn();
 
 vi.mock("@/lib/session-store", () => ({
   saveSessionToStore: (...args: unknown[]) => mockSaveSessionToStore(...args),
   getSessionFromStore: (...args: unknown[]) => mockGetSessionFromStore(...args),
   deleteSessionFromStore: (...args: unknown[]) => mockDeleteSessionFromStore(...args),
-  refreshSessionExpiration: (...args: unknown[]) => mockRefreshSessionExpiration(...args),
   cleanupExpiredSessions: vi.fn(),
 }));
 
@@ -54,7 +51,7 @@ vi.mock("next/headers", () => ({
 // Import modules under test AFTER the mock declarations
 // ---------------------------------------------------------------------------
 
-const { createSession, refreshSession } = await import("@/lib/session");
+const { createSession } = await import("@/lib/session");
 const { addAccount } = await import("@/lib/accounts");
 const { createLogger } = await import("@/lib/logger");
 
@@ -96,7 +93,6 @@ beforeEach(() => {
   mockSaveSessionToStore.mockReset();
   mockGetSessionFromStore.mockReset().mockResolvedValue(null);
   mockDeleteSessionFromStore.mockReset();
-  mockRefreshSessionExpiration.mockReset();
 });
 
 afterEach(() => {
@@ -135,22 +131,6 @@ describe("session cookie Secure flag", () => {
     await createSession(tokens);
 
     expect(secureFlagOf("valorant_session")).toBe(false);
-  });
-
-  it("is set on the cookie refreshSession rewrites", async () => {
-    setEnv("NODE_ENV", "staging");
-    cookieValues["valorant_session"] = "mock-jwt-token";
-    mockGetSessionFromStore.mockResolvedValue({
-      accessToken: "test-access-token",
-      entitlementsToken: "test-entitlements-token",
-      puuid: "test-puuid-12345678",
-      region: "na",
-      createdAt: Date.now(),
-    } satisfies SessionData);
-
-    await expect(refreshSession()).resolves.toBe(true);
-
-    expect(secureFlagOf("valorant_session")).toBe(true);
   });
 });
 

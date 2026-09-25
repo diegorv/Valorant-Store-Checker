@@ -28,8 +28,6 @@ export const HENRIK_REGION_MAP = {
   br: "na",
 } as const;
 
-export type HenrikRegion = (typeof HENRIK_REGION_MAP)[keyof typeof HENRIK_REGION_MAP];
-
 /**
  * Converts a Riot region/shard to a Henrik-compatible region.
  * Falls back to 'na' for unknown regions.

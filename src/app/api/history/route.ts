@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withSession, parseBody } from "@/lib/api-validate";
+import { notFoundResponse, serverErrorResponse } from "@/lib/api-error";
 import { getAccounts } from "@/lib/accounts";
 import { getStoreRotations, deleteStoreRotation } from "@/lib/store-history-db";
 import { createLogger } from "@/lib/logger";
@@ -32,7 +33,7 @@ export const GET = withSession(async (_request, session, reqId?: string) => {
     return NextResponse.json({ rotations }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     log.error("Failed to read history:", error);
-    return NextResponse.json({ error: "Failed to load history", code: "UNKNOWN" }, { status: 500 });
+    return serverErrorResponse("Failed to load history");
   }
 });
 
@@ -42,10 +43,10 @@ export const DELETE = withSession(async (request, session, reqId?: string) => {
   if (!parsed.success) return parsed.response;
   try {
     const deleted = await deleteStoreRotation(await allowedPuuids(session), parsed.data.id);
-    if (!deleted) return NextResponse.json({ error: "Rotation not found" }, { status: 404 });
+    if (!deleted) return notFoundResponse("Rotation");
     return NextResponse.json({ success: true });
   } catch (error) {
     log.error("Failed to delete rotation:", error);
-    return NextResponse.json({ error: "Failed to delete rotation", code: "UNKNOWN" }, { status: 500 });
+    return serverErrorResponse("Failed to delete rotation");
   }
 });

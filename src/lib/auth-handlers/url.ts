@@ -6,6 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { errorResponse } from "@/lib/api-error";
 import { registerAuthenticatedSession } from "./shared";
 import type { AuthBody } from "./shared";
 
@@ -17,10 +18,7 @@ export async function handleUrlAuth(
   const result = await completeAuthWithUrl(body.url);
 
   if (!result.success) {
-    return NextResponse.json(
-      { error: result.error || "Failed to process auth URL" },
-      { status: 401 },
-    );
+    return errorResponse(result.error || "Failed to process auth URL", "UNAUTHORIZED", undefined, 401);
   }
 
   await registerAuthenticatedSession(result.tokens, result.tokens.riotCookies ?? "");

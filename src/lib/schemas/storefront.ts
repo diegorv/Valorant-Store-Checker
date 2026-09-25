@@ -142,10 +142,3 @@ export const RiotWalletSchema = z
     Balances: CostMapSchema,
   })
   .passthrough();
-
-// ---------------------------------------------------------------------------
-// Inferred types — single source of truth
-// ---------------------------------------------------------------------------
-
-export type RiotStorefrontParsed = z.infer<typeof RiotStorefrontSchema>;
-export type RiotWalletParsed = z.infer<typeof RiotWalletSchema>;

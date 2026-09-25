@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { type ZodType } from "zod";
+import { errorResponse, unauthorizedResponse } from "@/lib/api-error";
 import { getSession, getSessionWithRefresh } from "@/lib/session";
 import type { SessionData } from "@/lib/session";
 
@@ -51,10 +52,7 @@ export async function parseBody<T>(
   } catch {
     return {
       success: false,
-      response: NextResponse.json(
-        { error: "Invalid JSON in request body" },
-        { status: 400 },
-      ),
+      response: errorResponse("Invalid JSON in request body", "VALIDATION_ERROR"),
     };
   }
 
@@ -64,7 +62,7 @@ export async function parseBody<T>(
     const message = result.error.issues[0]?.message ?? "Invalid request body";
     return {
       success: false,
-      response: NextResponse.json({ error: message }, { status: 400 }),
+      response: errorResponse(message, "VALIDATION_ERROR"),
     };
   }
 
@@ -95,7 +93,7 @@ interface WithSessionOptions {
  * directly as `GET`, `POST`, etc.
  *
  * When no valid session exists the wrapper responds with 401 JSON
- * `{ error: "Unauthorized" }` without invoking the inner handler.
+ * `{ error: "Unauthorized", code: "UNAUTHORIZED" }` without invoking the inner handler.
  *
  * @param handler  The actual route logic; receives the request and session.
  * @param options  Pass `{ refresh: true }` to use getSessionWithRefresh().
@@ -121,7 +119,7 @@ export function withSession(
 
     // 2. No session → 401 Unauthorized
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorizedResponse();
     }
 
     // 3. Extract x-request-id header for logging
