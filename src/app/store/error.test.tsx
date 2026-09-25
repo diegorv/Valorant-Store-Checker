@@ -24,4 +24,11 @@ describe("StoreError", () => {
 
     expect(retry).toHaveBeenCalledOnce();
   });
+
+  it("offers retry even for an auth-sounding message, which it must not read as an expired session", () => {
+    render(<StoreError error={new Error("Request failed with status 401: unauthorized")} retry={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /login/i })).toBeNull();
+  });
 });

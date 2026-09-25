@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { getSessionWithRefresh } from "@/lib/session";
+import { getSessionWithRefresh, revokeCurrentSession } from "@/lib/session";
 import { fetchUserStore } from "@/lib/store-service";
+import { RiotStoreHttpError } from "@/lib/riot-store";
+import type { StoreData } from "@/types/store";
 import { WalletSection } from "@/components/store/server/WalletSection";
 import { DailyStoreSection } from "@/components/store/server/DailyStoreSection";
 import { BundleSection } from "@/components/store/server/BundleSection";
@@ -27,12 +29,34 @@ export const dynamic = "force-dynamic";
 export default async function StorePage() {
   const session = await getSessionWithRefresh();
 
-  if (!session) {
+  // Same predicate /login uses (see the comment there): a session whose Riot
+  // refresh failed is truthy but carries a dead access token, so every
+  // downstream call can only answer 401. Send the user to the login form
+  // instead of rendering an error panel.
+  if (!session || session._refreshFailed) {
     redirect("/login");
   }
 
   // Single orchestration call — replaces manual getStorefront + getStoreStaticData
-  const storeData = await fetchUserStore(session);
+  let storeData: StoreData | null;
+  try {
+    storeData = await fetchUserStore(session);
+  } catch (error) {
+    // Riot can reject tokens the refresh path was happy with — revoked from
+    // another client, expired entitlements. Decided on the HTTP status, which
+    // is the server's own: error.tsx cannot decide it, because the message it
+    // receives is replaced by a digest outside development.
+    //
+    // Dropping the session first is what lets the redirect land: /login sends a
+    // session it still considers usable straight back here. Best-effort — another
+    // instance can still be inside its own session-cache window and bounce once,
+    // the residual hazard already documented on dropDeadSession.
+    if (error instanceof RiotStoreHttpError && error.status === 401) {
+      await revokeCurrentSession();
+      redirect("/login");
+    }
+    throw error;
+  }
 
   if (!storeData) {
     return (

@@ -21,6 +21,29 @@ export interface StoreTokens {
 }
 
 /**
+ * Thrown when Riot answers a store request with a status the caller has to see.
+ *
+ * Carries the status because a 401 is a different outcome from an upstream
+ * failure: the tokens are dead and only a new login fixes it. A Server Component
+ * cannot recover that from the message — the framework replaces it with a digest
+ * before the error reaches the client.
+ */
+export class RiotStoreHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number, body: string) {
+    super(`Request failed with status ${status}: ${body}`);
+    this.name = "RiotStoreHttpError";
+    this.status = status;
+  }
+}
+
+/** The failed response's body, or a placeholder when it cannot be read. */
+async function readErrorBody(response: Response): Promise<string> {
+  return response.text().catch(() => "No error body");
+}
+
+/**
  * Base64-encoded client platform identifier required by Riot PD endpoints.
  * This is the standard PC/Windows platform descriptor.
  */
@@ -193,8 +216,8 @@ export async function fetchWithShardFallback(
       // Riot answers it while a region is under maintenance, and a shard that
       // does not host this player would answer 200 with an empty account
       // (no skins, no VP), which would read as "you own nothing".
-      const errorBody = await response.text().catch(() => "No error body");
-      throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
+      const errorBody = await readErrorBody(response);
+      throw new RiotStoreHttpError(response.status, errorBody);
     }
     log.warn(`Shard ${preferred.toUpperCase()} failed with ${response.status}, trying other shards`);
   } catch (err) {
@@ -218,12 +241,22 @@ export async function fetchWithShardFallback(
     })
   );
 
+  // A probe answering something other than 404/405 is not "wrong shard" — it is
+  // the same error the fast path refuses to fall through on. Remembered rather
+  // than thrown here, because a later probe may still be the right shard.
+  let probeError: RiotStoreHttpError | null = null;
+
   for (const result of results) {
-    if (result.status === "fulfilled" && result.value.response.ok) {
-      const region = result.value.region;
+    if (result.status !== "fulfilled") continue;
+    const { response, region } = result.value;
+    if (response.ok) {
       log.info(`Shard discovery success: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
       cachedShardByPuuid.set(tokens.puuid, region);
-      return result.value.response;
+      return response;
+    }
+    if (!probeError && ![404, 405].includes(response.status)) {
+      const errorBody = await readErrorBody(response);
+      probeError = new RiotStoreHttpError(response.status, errorBody);
     }
   }
 
@@ -241,14 +274,18 @@ export async function fetchWithShardFallback(
         cachedShardByPuuid.set(tokens.puuid, region);
         return response;
       }
-      lastError = new Error(`Request failed with status ${response.status}`);
+      const errorBody = await readErrorBody(response);
+      lastError = new RiotStoreHttpError(response.status, errorBody);
     } catch (err) {
       lastError = err as Error;
       log.warn(`Network error on ${region.toUpperCase()}:`, err);
     }
   }
 
-  throw lastError || new Error("Failed to find correct shard for user data");
+  // A status Riot actually answered with beats whatever the retries last saw:
+  // every shard answers 401 for dead tokens, and only that status tells the
+  // caller to send the user to login instead of offering a retry.
+  throw probeError || lastError || new Error("Failed to find correct shard for user data");
 }
 
 /**
