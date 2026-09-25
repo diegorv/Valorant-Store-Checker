@@ -111,7 +111,7 @@ pnpm mutation          # Stryker — reports/mutation/index.html
 
 Coverage tells you which lines ran; mutation testing tells you whether the tests
 would have *noticed* a change. It runs over the same files the coverage config
-includes (`src/lib`, `src/app/api`, `src/middleware.ts`).
+includes (`src/lib`, `src/app/api`, `src/proxy.ts`).
 
 A full run takes about 2.5 minutes. Scope it while working on one area:
 
@@ -206,12 +206,12 @@ src/
 │   └── ui/                   # Button
 ├── hooks/                    # useWishlist, useCountdown
 ├── types/                    # Shared TypeScript types
-├── middleware.ts             # Sends unauthenticated requests on protected routes to /login
+├── proxy.ts                  # Sends unauthenticated requests on protected routes to /login
 └── lib/
     ├── auth-handlers/        # credentials, mfa, url, cookie, shared
     ├── schemas/              # Zod schemas (session, riot-auth, storefront, henrik, valorant-api, accounts)
     ├── msw/                  # Mocked Riot / HenrikDev server for the e2e suite
-    ├── __tests__/            # Vitest unit tests (src/lib, API routes, middleware)
+    ├── __tests__/            # Vitest unit tests (src/lib, API routes, proxy)
     ├── session.ts            # getSession / getSessionWithRefresh (RSC-safe)
     ├── session-store.ts      # Transparent encrypt/decrypt layer
     ├── session-crypto.ts     # AES-256-GCM primitives

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 
 // ---------------------------------------------------------------------------
 // Stub global crypto.randomUUID to return deterministic IDs
@@ -27,7 +27,7 @@ describe("x-request-id injection", () => {
   it("generates and injects x-request-id when not present in request", () => {
     const request = new NextRequest("http://localhost/store");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // Response headers should contain x-request-id
     expect(response.headers.get("x-request-id")).toBe(fixedRequestId);
@@ -36,13 +36,13 @@ describe("x-request-id injection", () => {
   it("forwards x-request-id in request headers to downstream", () => {
     const request = new NextRequest("http://localhost/store");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // Response should pass through with request headers
     expect(response).toBeInstanceOf(Response);
     // The next response with request headers is returned
     const _responseClone = response as Response & { request?: { headers: Headers } };
-    // Verify request headers are forwarded (middleware passes them via NextResponse.next({ request: { headers } }))
+    // Verify request headers are forwarded (proxy passes them via NextResponse.next({ request: { headers } }))
     expect(response).toBeTruthy();
   });
 });
@@ -57,7 +57,7 @@ describe("client-supplied x-request-id", () => {
       headers: new Headers({ "x-request-id": "existing-id-67890" }),
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // The client value never reaches the logger — the server-generated one wins
     expect(response.headers.get("x-request-id")).toBe(fixedRequestId);
@@ -68,7 +68,7 @@ describe("client-supplied x-request-id", () => {
       headers: new Headers({ "x-request-id": "existing-id-67890" }),
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // NextResponse.next({ request: { headers } }) encodes the overridden request
     // headers so we can assert what the route handler will actually read.
@@ -84,7 +84,7 @@ describe("protected route redirect", () => {
   it("redirects unauthenticated users accessing /store to /login", () => {
     const request = new NextRequest("http://localhost/store");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // Should be a redirect to /login (307 is NextResponse.redirect() default)
     expect([302, 307]).toContain(response.status);
@@ -94,7 +94,7 @@ describe("protected route redirect", () => {
   it("redirect response has x-request-id header set", () => {
     const request = new NextRequest("http://localhost/store");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // Redirect response should have x-request-id
     expect(response.headers.get("x-request-id")).toBe(fixedRequestId);
@@ -109,7 +109,7 @@ describe("public route passthrough", () => {
   it("allows unauthenticated users to access /login without redirect", () => {
     const request = new NextRequest("http://localhost/login");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // Should NOT be a redirect - allowed to proceed
     expect(response.status).toBe(200);
@@ -118,9 +118,19 @@ describe("public route passthrough", () => {
   it("allows unauthenticated users to access other public routes without redirect", () => {
     const request = new NextRequest("http://localhost/about");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // Should NOT be a redirect
+    expect(response.status).toBe(200);
+  });
+
+  it("does not redirect /api/store", () => {
+    const request = new NextRequest("http://localhost/api/store");
+
+    const response = proxy(request);
+
+    // /api/store is not a guarded prefix here — API routes enforce their own
+    // session via withSession and answer 401 themselves.
     expect(response.status).toBe(200);
   });
 });
@@ -133,10 +143,10 @@ describe("no header duplication", () => {
   it("sets x-request-id only on redirect response, not on discarded intermediate response", () => {
     const request = new NextRequest("http://localhost/store");
 
-    // The middleware creates a NextResponse.next() but then discards it
+    // The proxy creates a NextResponse.next() but then discards it
     // when creating the redirect response. Only the redirect response
     // should have x-request-id set.
-    const response = middleware(request);
+    const response = proxy(request);
 
     // Only one response is returned - the redirect (307 is NextResponse.redirect() default)
     expect([302, 307]).toContain(response.status);
@@ -148,7 +158,7 @@ describe("no header duplication", () => {
   it("does not set x-request-id twice on the same response", () => {
     const request = new NextRequest("http://localhost/store");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     // The redirect response should have x-request-id header set
     const xRequestId = response.headers.get("x-request-id");
