@@ -277,7 +277,8 @@ export async function fetchWithShardFallback(
       const errorBody = await readErrorBody(response);
       lastError = new RiotStoreHttpError(response.status, errorBody);
     } catch (err) {
-      lastError = err as Error;
+      // A timeout on a later shard must not bury a status an earlier one answered with
+      if (!(lastError instanceof RiotStoreHttpError)) lastError = err as Error;
       log.warn(`Network error on ${region.toUpperCase()}:`, err);
     }
   }

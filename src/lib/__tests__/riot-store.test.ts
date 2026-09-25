@@ -486,6 +486,23 @@ describe("fetchWithShardFallback — shard selection", () => {
     ).rejects.toMatchObject({ status: 401 });
   });
 
+  it("keeps a retry's status when a later retry only times out", async () => {
+    // The retries run one after another: a timeout on a later shard must not
+    // bury the 401 an earlier one answered with.
+    const probed = new Set<string>();
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.includes("valorant-api.com")) return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
+      const host = new URL(url).host;
+      if (host === "pd.eu.a.pvp.net" && probed.has(host)) return Promise.resolve(makeFailResponse(401));
+      probed.add(host);
+      return Promise.reject(new Error("The operation timed out"));
+    });
+
+    await expect(
+      fetchWithShardFallback({ ...MOCK_TOKENS, region: "na" }, walletUrl)
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
   it("never calls the same PD host twice in one lookup", async () => {
     mockShards([]); // every shard fails
 
