@@ -444,10 +444,26 @@ describe("fetchWithShardFallback — shard selection", () => {
       return Promise.resolve(host === "pd.na.a.pvp.net" ? makeFailResponse(403) : makeOkResponse(MOCK_WALLET));
     });
 
-    await expect(fetchWithShardFallback({ ...MOCK_TOKENS, region: "am" }, walletUrl)).rejects.toThrow(
-      /status 403/
-    );
+    await expect(fetchWithShardFallback({ ...MOCK_TOKENS, region: "am" }, walletUrl)).rejects.toMatchObject({
+      status: 403,
+    });
     expect(pdHostsCalled()).toEqual(["pd.na.a.pvp.net"]);
+  });
+
+  it("probes other shards when the player's shard throws a plain error, whatever its message says", async () => {
+    // Contrived: fetch never rejects with this message. It exists only to pin
+    // that the guard branches on type, not on message.
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.includes("valorant-api.com")) return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
+      const host = new URL(url).host;
+      if (host === "pd.na.a.pvp.net") return Promise.reject(new Error("Request failed with status 999: not a riot error"));
+      return Promise.resolve(host === "pd.eu.a.pvp.net" ? makeOkResponse(MOCK_WALLET) : makeFailResponse(404));
+    });
+
+    const response = await fetchWithShardFallback({ ...MOCK_TOKENS, region: "na" }, walletUrl);
+
+    expect(response.ok).toBe(true);
+    expect(pdHostsCalled()).toContain("pd.eu.a.pvp.net");
   });
 
   it("carries the status when the player's shard errors and every other shard rejects the tokens", async () => {
