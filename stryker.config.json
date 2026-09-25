@@ -41,7 +41,6 @@
     "!src/lib/redis-client.ts",
     "!src/lib/rate-limiter.ts",
     "!src/lib/session-db.ts",
-    "!src/lib/session-crypto.ts",
     "!src/lib/inventory-cache.ts",
     "!src/lib/store-service.ts",
     "!src/lib/riot-reauth.ts",

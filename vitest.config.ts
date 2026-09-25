@@ -35,9 +35,9 @@ export default defineConfig({
         "src/lib/henrik-api.ts",
         "src/lib/riot-inventory.ts",
         "src/lib/riot-loadout.ts",
-        // Files without tests - keep exclusions
+        // Tested only narrowly (store-service: Night Market hydration; inventory-cache:
+        // eviction), so their numbers would mislead - kept out until they get fuller suites
         "src/lib/store-service.ts",
-        "src/lib/session-crypto.ts",
         "src/lib/inventory-cache.ts",
         // Files with very low branch coverage that drag down project average
         "src/lib/riot-reauth.ts",
