@@ -98,6 +98,25 @@ const accountCache = new Map<string, CacheEntry<HenrikAccount>>();
 const mmrCache = new Map<string, CacheEntry<HenrikMMRData>>();
 const matchesCache = new Map<string, CacheEntry<HenrikStoredMatch[]>>();
 
+// The TTL above is only checked when the same key is read again, so an entry
+// for a player who never comes back is never freed. Cap each map so a
+// long-running instance cannot grow unbounded.
+const MAX_CACHE_ENTRIES = 50;
+
+/**
+ * Stores an entry in one of the module caches, evicting the oldest insertion
+ * first once the cap is reached. Map iterates in insertion order and re-setting
+ * an existing key keeps its position, so the first key is the oldest insertion.
+ */
+function cacheEntry<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
+  if (!cache.has(key) && cache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+
+  cache.set(key, { data, fetchedAt: Date.now() });
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -149,7 +168,7 @@ export async function getHenrikAccount(puuid: string, region: string): Promise<H
     const json = await response.json();
     const account = parseWithLog(HenrikAccountSchema, json.data, "HenrikAccount");
     if (!account) { return cached?.data ?? null; }
-    accountCache.set(puuid, { data: account, fetchedAt: Date.now() });
+    cacheEntry(accountCache, puuid, account);
     log.info("Henrik account fetched successfully for PUUID:", puuid.substring(0, 8));
     return account;
   } catch (error) {
@@ -201,7 +220,7 @@ export async function getHenrikMMR(puuid: string, region: string): Promise<Henri
     const rawMmr = { current: json.data.current, peak: json.data.peak, seasonal };
     const mmrData = parseWithLog(HenrikMMRSchema, rawMmr, "HenrikMMR");
     if (!mmrData) { return cached?.data ?? null; }
-    mmrCache.set(puuid, { data: mmrData, fetchedAt: Date.now() });
+    cacheEntry(mmrCache, puuid, mmrData);
     log.info("Henrik MMR fetched successfully for PUUID:", puuid.substring(0, 8));
     return mmrData;
   } catch (error) {
@@ -259,30 +278,11 @@ export async function getHenrikStoredMatches(
       if (!parsed.success) log.warn("Dropping malformed stored match:", parsed.error.issues[0]?.path.join("."), parsed.error.issues[0]?.message);
       return parsed.success ? [parsed.data] : [];
     });
-    matchesCache.set(cacheKey, { data: matches, fetchedAt: Date.now() });
+    cacheEntry(matchesCache, cacheKey, matches);
     log.info(`Henrik stored-matches fetched: ${matches.length} of ${json.data.length} entries kept for PUUID:`, puuid.substring(0, 8));
     return matches;
   } catch (error) {
     log.error("Henrik stored-matches fetch network error for PUUID:", puuid.substring(0, 8), error);
     return cached?.data ?? null;
-  }
-}
-
-/**
- * Clear the Henrik in-memory cache.
- * If puuid is provided, removes only that player's entries.
- * If no puuid is provided, clears all cached data.
- */
-export function clearHenrikCache(puuid?: string): void {
-  if (puuid) {
-    accountCache.delete(puuid);
-    mmrCache.delete(puuid);
-    for (const key of matchesCache.keys()) {
-      if (key.startsWith(`${puuid}:`)) matchesCache.delete(key);
-    }
-  } else {
-    accountCache.clear();
-    mmrCache.clear();
-    matchesCache.clear();
   }
 }
