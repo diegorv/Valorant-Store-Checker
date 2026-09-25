@@ -22,7 +22,9 @@ describe("EncyclopediaCard", () => {
   });
 
   describe("Optimistic UI", () => {
-    it("reconciles with the prop when the parent rolls a rejected toggle back", async () => {
+    // The heart shows only the parent's state: the parent flips it when a request
+    // starts and rolls it back on rejection. A click alone changes nothing here.
+    it("shows the parent's state, following its optimistic update and rollback", async () => {
       const user = userEvent.setup();
       const onWishlistToggle = vi.fn();
 
@@ -36,7 +38,7 @@ describe("EncyclopediaCard", () => {
 
       const card = within(container);
       await user.click(card.getByRole("button", { name: /add to wishlist/i }));
-      expect(card.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
+      expect(card.getByRole("button", { name: /add to wishlist/i })).toBeTruthy();
 
       // Parent applies its own optimistic update
       rerender(
@@ -46,6 +48,7 @@ describe("EncyclopediaCard", () => {
           onWishlistToggle={onWishlistToggle}
         />
       );
+      expect(card.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
 
       // Server rejected it — parent rolls back to the real state
       rerender(
@@ -61,8 +64,8 @@ describe("EncyclopediaCard", () => {
   });
 
   // End-to-end over the real tree (EncyclopediaClient -> EncyclopediaGrid -> EncyclopediaCard).
-  // The parent already rolls a rejected toggle back; only the card pins its override,
-  // so the heart keeps lying about a skin that is not on the wishlist.
+  // The card shows only the parent's state, so the parent's rollback is what puts
+  // the heart back.
   describe("Server rejection reverts the heart (integration with EncyclopediaClient)", () => {
     function mockWishlistApi(toggleResponse: Partial<Response>) {
       return vi

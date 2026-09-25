@@ -115,72 +115,108 @@ describe("useWishlist", () => {
     });
   });
 
-  describe("Toggles of one skin that overlap in flight", () => {
+  // Requests for one skin run one at a time: a toggle made while another is in
+  // flight starts its request only once that one settles
+  describe("Toggles of one skin made while a request is in flight", () => {
     function mockHeldFetches() {
       const settleFetch: Array<(res: Response) => void> = [];
-      const fetches: Array<Promise<Response>> = [];
-      vi.spyOn(global, "fetch").mockImplementation(() => {
-        const pending = new Promise<Response>((resolve) => settleFetch.push(resolve));
-        fetches.push(pending);
-        return pending;
+      const methods: string[] = [];
+      vi.spyOn(global, "fetch").mockImplementation((_input, init) => {
+        methods.push(init?.method ?? "GET");
+        return new Promise<Response>((resolve) => settleFetch.push(resolve));
       });
-      return async function settle(index: number, res: Response) {
+      async function settle(index: number, res: Response) {
         await act(async () => {
           settleFetch[index]!(res);
-          await fetches[index];
+          // Let the settled request finish and the next queued one start
+          await new Promise((resolve) => setTimeout(resolve, 0));
         });
-      };
+      }
+      return { settle, methods };
     }
 
-    function toggleWithoutWaiting(result: { current: ReturnType<typeof useWishlist> }) {
+    async function toggleWithoutWaiting(
+      result: { current: ReturnType<typeof useWishlist> },
+      uuid = "skin-123",
+    ) {
       // Each toggle runs in its own act so the next one sees the re-rendered state
-      act(() => {
-        void result.current.toggleWishlist("skin-123", mockStoreItem);
+      await act(async () => {
+        void result.current.toggleWishlist(uuid, itemWith(uuid));
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
     }
 
-    it("leaves the skin off the wishlist when both requests are rejected", async () => {
-      const settle = mockHeldFetches();
+    it("sends the second request only after the first settles, and both rejected leave the skin off", async () => {
+      const { settle, methods } = mockHeldFetches();
       const { result } = renderHook(() => useWishlist([]));
 
-      toggleWithoutWaiting(result);
-      toggleWithoutWaiting(result);
+      await toggleWithoutWaiting(result);
+      await toggleWithoutWaiting(result);
+
+      // The second toggle waits: one request in flight, state still the first toggle's
+      expect(methods).toEqual(["POST"]);
+      expect(result.current.isWishlisted("skin-123")).toBe(true);
 
       await settle(0, failResponse(401, "Unauthorized"));
-      await settle(1, failResponse(401, "Unauthorized"));
+      expect(methods).toHaveLength(2);
 
+      await settle(1, failResponse(401, "Unauthorized"));
       expect(result.current.isWishlisted("skin-123")).toBe(false);
     });
 
-    // Two toggles cannot tell the fix apart: the stale request's rollback target
-    // equals the newer request's target. A third toggle makes them differ.
-    it("does not let a stale rejection roll back what a newer accepted request set", async () => {
-      const settle = mockHeldFetches();
+    it("sends the second toggle as a removal once the first add is accepted", async () => {
+      const { settle, methods } = mockHeldFetches();
       const { result } = renderHook(() => useWishlist([]));
 
-      toggleWithoutWaiting(result);
-      toggleWithoutWaiting(result);
-      toggleWithoutWaiting(result);
+      await toggleWithoutWaiting(result);
+      await toggleWithoutWaiting(result);
 
-      await settle(2, okResponse());
-      await settle(0, failResponse(401, "Unauthorized"));
-      expect(result.current.isWishlisted("skin-123")).toBe(true);
-
-      await settle(1, failResponse(401, "Unauthorized"));
-      expect(result.current.isWishlisted("skin-123")).toBe(true);
-    });
-
-    it("settles on the last toggle when two accepted responses land in reverse order", async () => {
-      const settle = mockHeldFetches();
-      const { result } = renderHook(() => useWishlist([]));
-
-      toggleWithoutWaiting(result);
-      toggleWithoutWaiting(result);
+      await settle(0, okResponse());
+      expect(methods).toEqual(["POST", "DELETE"]);
 
       await settle(1, okResponse());
-      await settle(0, okResponse());
-
       expect(result.current.isWishlisted("skin-123")).toBe(false);
+    });
+
+    it("ends on after three accepted toggles", async () => {
+      const { settle, methods } = mockHeldFetches();
+      const { result } = renderHook(() => useWishlist([]));
+
+      await toggleWithoutWaiting(result);
+      await toggleWithoutWaiting(result);
+      await toggleWithoutWaiting(result);
+
+      await settle(0, okResponse());
+      await settle(1, okResponse());
+      await settle(2, okResponse());
+
+      expect(methods).toEqual(["POST", "DELETE", "POST"]);
+      expect(result.current.isWishlisted("skin-123")).toBe(true);
+    });
+
+    // The direction is read when the request starts, not when the toggle was made
+    it("re-sends the second toggle as an add when the first add is rejected", async () => {
+      const { settle, methods } = mockHeldFetches();
+      const { result } = renderHook(() => useWishlist([]));
+
+      await toggleWithoutWaiting(result);
+      await toggleWithoutWaiting(result);
+
+      await settle(0, failResponse(401, "Unauthorized"));
+      expect(methods).toEqual(["POST", "POST"]);
+
+      await settle(1, okResponse());
+      expect(result.current.isWishlisted("skin-123")).toBe(true);
+    });
+
+    it("does not hold one skin's request behind another skin's", async () => {
+      const { methods } = mockHeldFetches();
+      const { result } = renderHook(() => useWishlist([]));
+
+      await toggleWithoutWaiting(result, "skin-aaa");
+      await toggleWithoutWaiting(result, "skin-bbb");
+
+      expect(methods).toEqual(["POST", "POST"]);
     });
   });
 
