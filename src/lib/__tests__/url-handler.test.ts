@@ -80,6 +80,6 @@ describe("handleUrlAuth", () => {
 
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("invalid_url");
+    expect(body).toEqual({ error: "invalid_url", code: "UNAUTHORIZED" });
   });
 });

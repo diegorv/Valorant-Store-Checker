@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { parseBody, withSession } from "@/lib/api-validate";
+import { errorResponse, serverErrorResponse } from "@/lib/api-error";
 import { switchAccount, getActiveAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
 
@@ -35,9 +36,11 @@ export const POST = withSession(async (request: NextRequest, _session: unknown, 
     const success = await switchAccount(puuid);
 
     if (!success) {
-      return NextResponse.json(
-        { error: "Failed to switch account. Account may not exist or session may be expired." },
-        { status: 404 }
+      return errorResponse(
+        "Failed to switch account. Account may not exist or session may be expired.",
+        "NOT_FOUND",
+        undefined,
+        404
       );
     }
 
@@ -58,9 +61,6 @@ export const POST = withSession(async (request: NextRequest, _session: unknown, 
     });
   } catch (error) {
     log.error("Failed to switch account:", error);
-    return NextResponse.json(
-      { error: "Failed to switch account" },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to switch account");
   }
 });

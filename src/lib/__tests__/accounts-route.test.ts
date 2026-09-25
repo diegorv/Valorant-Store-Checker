@@ -76,7 +76,7 @@ describe("DELETE /api/accounts (with session)", () => {
 
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toBe("Account not found");
+    expect(body).toEqual({ error: "Account not found", code: "NOT_FOUND" });
   });
 
   it("returns 400 when no puuid is provided", async () => {
@@ -85,6 +85,18 @@ describe("DELETE /api/accounts (with session)", () => {
     );
 
     expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "PUUID is required", code: "VALIDATION_ERROR" });
+  });
+
+  it("returns 500 with a code when the registry cannot be updated", async () => {
+    const { removeAccount } = await import("@/lib/accounts");
+    vi.mocked(removeAccount).mockRejectedValue(new Error("cookie store down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await DELETE(makeDeleteRequest("existing-puuid"));
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Failed to remove account", code: "INTERNAL_ERROR" });
   });
 });
 
@@ -129,5 +141,16 @@ describe("GET /api/accounts (with session)", () => {
     // Building the registry here would rotate the caller's session on a read
     expect(addAccount).not.toHaveBeenCalled();
     expect(getAccounts).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 500 with a code when the registry cannot be read", async () => {
+    const { getAccounts } = await import("@/lib/accounts");
+    vi.mocked(getAccounts).mockRejectedValue(new Error("cookie store down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await GET(makeGetRequest());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Failed to retrieve accounts", code: "INTERNAL_ERROR" });
   });
 });

@@ -83,7 +83,7 @@ describe("handleMfaAuth", () => {
 
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("invalid_code");
+    expect(body).toEqual({ error: "invalid_code", code: "UNAUTHORIZED" });
   });
 
   it("submitMfa returns a re-issued MFA challenge -> 200 with requiresMfa:true", async () => {

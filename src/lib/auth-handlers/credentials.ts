@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { authenticateRiotAccount } from "@/lib/riot-auth";
+import { errorResponse, serverErrorResponse } from "@/lib/api-error";
 import { registerAuthenticatedSession } from "./shared";
 import type { AuthBody } from "./shared";
 
@@ -27,19 +28,13 @@ export async function handleCredentialsAuth(
 
     // Authentication failed
     const errorMsg = "error" in result ? result.error : "Authentication failed";
-    return NextResponse.json(
-      { error: errorMsg || "Authentication failed" },
-      { status: 401 },
-    );
+    return errorResponse(errorMsg || "Authentication failed", "UNAUTHORIZED", undefined, 401);
   }
 
   // Authentication successful - create session with tokens + Riot cookies for SSID re-auth
   const tokens = "tokens" in result ? result.tokens : null;
   if (!tokens) {
-    return NextResponse.json(
-      { error: "Authentication successful but failed to retrieve tokens" },
-      { status: 500 },
-    );
+    return serverErrorResponse("Authentication successful but failed to retrieve tokens");
   }
 
   const riotCookies =

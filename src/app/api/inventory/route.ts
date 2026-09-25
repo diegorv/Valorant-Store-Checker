@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { withSession } from "@/lib/api-validate";
+import { errorResponse, serverErrorResponse } from "@/lib/api-error";
 import { getOwnedSkins, clearInventoryCache } from "@/lib/riot-inventory";
 import { getCachedInventory, clearCachedInventory } from "@/lib/inventory-cache";
 import { createLogger } from "@/lib/logger";
@@ -68,22 +69,10 @@ export const GET = withSession(async (request: NextRequest, session, reqId?: str
 
       // The upstream error stays in the server log above — the client only needs
       // the generic message, and echoing the raw Riot response leaks its shape.
-      return NextResponse.json(
-        {
-          error: "Failed to fetch inventory data",
-          code: "RIOT_API_ERROR",
-        },
-        { status: 500 }
-      );
+      return errorResponse("Failed to fetch inventory data", "RIOT_API_ERROR", undefined, 500);
     }
   } catch (error) {
     log.error("Unhandled error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to fetch inventory data",
-        code: "UNKNOWN",
-      },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to fetch inventory data");
   }
 }, { refresh: true });

@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { submitMfa } from "@/lib/riot-auth";
+import { errorResponse } from "@/lib/api-error";
 import { registerAuthenticatedSession } from "./shared";
 import type { AuthBody } from "./shared";
 
@@ -30,10 +31,7 @@ export async function handleMfaAuth(
       });
     }
 
-    return NextResponse.json(
-      { error: result.error || "MFA verification failed" },
-      { status: 401 },
-    );
+    return errorResponse(result.error || "MFA verification failed", "UNAUTHORIZED", undefined, 401);
   }
 
   await registerAuthenticatedSession(result.tokens, result.riotCookies ?? "");

@@ -84,6 +84,20 @@ describe("GET /api/inventory — upstream failure response", () => {
       expect.objectContaining({ message: UPSTREAM_MESSAGE }),
     );
   });
+
+  it("an unexpected failure answers with the generic server-error code", async () => {
+    const { getCachedInventory } = await import("@/lib/inventory-cache");
+    vi.mocked(getCachedInventory).mockImplementation(() => {
+      throw new Error("cache exploded");
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await GET(new NextRequest("http://localhost/api/inventory"));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to fetch inventory data", code: "INTERNAL_ERROR" });
+    errorSpy.mockRestore();
+  });
 });
 
 

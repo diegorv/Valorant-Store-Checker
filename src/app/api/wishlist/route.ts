@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withSession, parseBody } from "@/lib/api-validate";
+import { serverErrorResponse } from "@/lib/api-error";
 import {
   getWishlist,
   addToWishlist,
@@ -41,10 +42,7 @@ export const GET = withSession(async (_request, session, reqId?: string) => {
     return NextResponse.json(wishlist);
   } catch (error) {
     log.error("GET /api/wishlist failed:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch wishlist" },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to fetch wishlist");
   }
 });
 
@@ -71,19 +69,7 @@ export const POST = withSession(async (request, session, reqId?: string) => {
     return NextResponse.json(updated);
   } catch (error) {
     log.error("POST /api/wishlist failed:", error);
-
-    // Handle wishlist full error
-    if (
-      error instanceof Error &&
-      error.message.includes("Wishlist full")
-    ) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json(
-      { error: "Failed to add item to wishlist" },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to add item to wishlist");
   }
 });
 
@@ -109,9 +95,6 @@ export const DELETE = withSession(async (request, session, reqId?: string) => {
     return NextResponse.json(updated);
   } catch (error) {
     log.error("DELETE /api/wishlist failed:", error);
-    return NextResponse.json(
-      { error: "Failed to remove item from wishlist" },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to remove item from wishlist");
   }
 });

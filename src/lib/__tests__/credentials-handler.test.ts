@@ -93,7 +93,7 @@ describe("handleCredentialsAuth", () => {
 
       expect(res.status).toBe(401);
       const body = await res.json();
-      expect(body.error).toBe("invalid_credentials");
+      expect(body).toEqual({ error: "invalid_credentials", code: "UNAUTHORIZED" });
     });
 
     it("standard auth returns MFA challenge -> returns 200 with requiresMfa:true", async () => {
@@ -131,7 +131,10 @@ describe("handleCredentialsAuth", () => {
 
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toBeTruthy();
+      expect(body).toEqual({
+        error: "Authentication successful but failed to retrieve tokens",
+        code: "INTERNAL_ERROR",
+      });
     });
 
     it("result.success with tokens, no riotCookies -> still returns 200", async () => {

@@ -76,7 +76,7 @@ describe("Protected routes — 401 when no session", () => {
     const res = await wishlistRoute.GET(makeRequest("/api/wishlist"));
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
   });
 
   it("POST /api/wishlist returns 401 (no session)", async () => {
@@ -88,7 +88,7 @@ describe("Protected routes — 401 when no session", () => {
     }));
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
   });
 
   it("DELETE /api/wishlist returns 401 (no session)", async () => {
@@ -97,7 +97,7 @@ describe("Protected routes — 401 when no session", () => {
     }));
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
   });
 
   // -- Profile ----------------------------------------------------------------
@@ -106,7 +106,7 @@ describe("Protected routes — 401 when no session", () => {
     const res = await profileRoute.GET(makeRequest("/api/profile"));
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
   });
 
   // -- Accounts/Switch --------------------------------------------------------
@@ -117,7 +117,7 @@ describe("Protected routes — 401 when no session", () => {
     }));
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
   });
 
   // -- Accounts ---------------------------------------------------------------
@@ -126,7 +126,7 @@ describe("Protected routes — 401 when no session", () => {
     const res = await accountsRoute.GET(makeRequest("/api/accounts"));
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
   });
 
   it("DELETE /api/accounts returns 401 (no session)", async () => {
@@ -135,7 +135,7 @@ describe("Protected routes — 401 when no session", () => {
     );
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
   });
 
   it("DELETE /api/accounts does not touch the registry without a session", async () => {

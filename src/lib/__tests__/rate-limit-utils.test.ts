@@ -176,35 +176,32 @@ describe("createRateLimitedResponse", () => {
     expect(response.status).toBe(429);
   });
 
-  it("body contains error string and numeric retryAfter >= 0", async () => {
+  it("body has the shared error shape", async () => {
     const resetTime = Date.now() + 60000;
     const rateLimitData = { limit: 10, remaining: 0, reset: resetTime };
     const response = createRateLimitedResponse(rateLimitData);
     const body = await response.json();
 
-    expect(body.error).toBeTruthy();
-    expect(typeof body.retryAfter).toBe("number");
-    expect(body.retryAfter).toBeGreaterThanOrEqual(0);
+    expect(body).toEqual({ error: "Too many requests. Please try again later.", code: "RATE_LIMITED" });
   });
 
-  it("retryAfter is calculated as (reset - Date.now()) / 1000, floored at 0", async () => {
-    // When reset is far in the future, retryAfter should be positive
+  it("Retry-After is calculated as (reset - Date.now()) / 1000, floored at 0", () => {
+    // When reset is far in the future, Retry-After should be positive
     const resetTime = Date.now() + 60000;
     const rateLimitData = { limit: 10, remaining: 0, reset: resetTime };
     const response = createRateLimitedResponse(rateLimitData);
-    const body = await response.json();
+    const retryAfter = Number(response.headers.get("Retry-After"));
 
     // Approximately 60 seconds (60,000ms / 1000), give some tolerance for test execution time
-    expect(body.retryAfter).toBeGreaterThan(0);
-    expect(body.retryAfter).toBeLessThanOrEqual(60);
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(60);
   });
 
-  it("retryAfter floors at 0 when reset is in the past", async () => {
+  it("Retry-After floors at 0 when reset is in the past", () => {
     const rateLimitData = { limit: 10, remaining: 0, reset: Date.now() - 1000 };
     const response = createRateLimitedResponse(rateLimitData);
-    const body = await response.json();
 
-    expect(body.retryAfter).toBe(0);
+    expect(response.headers.get("Retry-After")).toBe("0");
   });
 
   it("calls addRateLimitHeaders to add rate limit headers to the response", async () => {

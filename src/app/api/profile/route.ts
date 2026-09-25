@@ -10,6 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { withSession } from "@/lib/api-validate";
+import { serverErrorResponse } from "@/lib/api-error";
 import { getProfileData } from "@/lib/profile-cache";
 import { type StoreTokens } from "@/lib/riot-store";
 import { createLogger } from "@/lib/logger";
@@ -51,12 +52,6 @@ export const GET = withSession(async (_request, session, reqId?: string) => {
     );
   } catch (error) {
     log.error("Unhandled error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to fetch profile data",
-        code: "UNKNOWN",
-      },
-      { status: 500 }
-    );
+    return serverErrorResponse("Failed to fetch profile data");
   }
 }, { refresh: true });

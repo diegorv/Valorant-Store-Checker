@@ -82,7 +82,7 @@ describe("handleCookieAuth", () => {
 
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("cookie_expired");
+    expect(body).toEqual({ error: "cookie_expired", code: "UNAUTHORIZED" });
   });
 
   it("failure without an error message -> 401 with the default message", async () => {
@@ -99,7 +99,7 @@ describe("handleCookieAuth", () => {
 
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toBe("Failed to authenticate with cookies");
+    expect(body).toEqual({ error: "Failed to authenticate with cookies", code: "UNAUTHORIZED" });
   });
 
   it("does not rate limit on its own — that is the route's job", async () => {

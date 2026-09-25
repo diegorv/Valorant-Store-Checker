@@ -82,6 +82,17 @@ describe("GET /api/history", () => {
 
     const response = await GET(new NextRequest("http://localhost/api/history"));
     expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "Unauthorized", code: "UNAUTHORIZED" });
+  });
+
+  it("500 with the same code as every other server failure", async () => {
+    mockGetStoreRotations.mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await GET(new NextRequest("http://localhost/api/history"));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to load history", code: "INTERNAL_ERROR" });
   });
 });
 
@@ -91,10 +102,32 @@ describe("DELETE /api/history", () => {
 
     expect((await DELETE(jsonRequest("DELETE", { id: 7 }))).status).toBe(200);
     expect(mockDeleteStoreRotation).toHaveBeenCalledWith(["active-puuid", "other-puuid"], 7);
-    expect((await DELETE(jsonRequest("DELETE", { id: 8 }))).status).toBe(404);
+    const notFound = await DELETE(jsonRequest("DELETE", { id: 8 }));
+    expect(notFound.status).toBe(404);
+    expect(await notFound.json()).toEqual({ error: "Rotation not found", code: "NOT_FOUND" });
   });
 
   it("400 on a bad id", async () => {
-    expect((await DELETE(jsonRequest("DELETE", { id: "x" }))).status).toBe(400);
+    const response = await DELETE(jsonRequest("DELETE", { id: "x" }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: expect.any(String), code: "VALIDATION_ERROR" });
+  });
+
+  it("400 on a body that is not JSON", async () => {
+    const response = await DELETE(
+      new NextRequest("http://localhost/api/history", { method: "DELETE", body: "{not json" }),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid JSON in request body", code: "VALIDATION_ERROR" });
+  });
+
+  it("500 when the delete fails", async () => {
+    mockDeleteStoreRotation.mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await DELETE(jsonRequest("DELETE", { id: 7 }));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to delete rotation", code: "INTERNAL_ERROR" });
   });
 });
