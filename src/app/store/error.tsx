@@ -11,10 +11,10 @@ import Link from "next/link";
  */
 export default function StoreError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("[Store Error Boundary]", error);
@@ -66,7 +66,7 @@ export default function StoreError({
               </a>
             ) : (
               <button
-                onClick={reset}
+                onClick={() => retry()}
                 className="angular-btn px-6 py-3 bg-brand text-void-deep font-display uppercase tracking-wider text-sm hover:bg-brand/85 transition-colors"
               >
                 Retry
