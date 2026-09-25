@@ -16,6 +16,13 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
   // Skins the user toggled. The mount fetch's payload can predate a toggle, so
   // the local state wins for these when that payload lands
   const locallyToggled = useRef<Set<string>>(new Set());
+  // Per skin with toggles in flight: how many, and the newest server-accepted
+  // state. The heart only settles once the last one lands, so a stale response
+  // cannot undo what a newer request moved
+  const toggleGeneration = useRef(0);
+  const inFlight = useRef<
+    Map<string, { pending: number; confirmed: boolean; confirmedGeneration: number }>
+  >(new Map());
 
   // Precompute weapon categories (sorted unique weapon names from skins)
   const weaponCategories = useMemo(() => {
@@ -77,6 +84,15 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
 
     locallyToggled.current.add(skinUuid);
 
+    const generation = ++toggleGeneration.current;
+    const entry = inFlight.current.get(skinUuid) ?? {
+      pending: 0,
+      confirmed: isCurrentlyWishlisted,
+      confirmedGeneration: 0,
+    };
+    entry.pending += 1;
+    inFlight.current.set(skinUuid, entry);
+
     // Optimistic update
     setWishlistSet((prev) => {
       const next = new Set(prev);
@@ -88,6 +104,7 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
       return next;
     });
 
+    let accepted = false;
     try {
       const res = await fetch("/api/wishlist", {
         method,
@@ -95,33 +112,33 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
         credentials: "include",
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        // Revert optimistic update on failure — a rejected toggle carries no
-        // intent worth keeping over the fetched wishlist
-        locallyToggled.current.delete(skinUuid);
-        setWishlistSet((prev) => {
-          const next = new Set(prev);
-          if (isCurrentlyWishlisted) {
-            next.add(skinUuid);
-          } else {
-            next.delete(skinUuid);
-          }
-          return next;
-        });
-      }
+      accepted = res.ok;
     } catch {
-      // Revert on network error
-      locallyToggled.current.delete(skinUuid);
-      setWishlistSet((prev) => {
-        const next = new Set(prev);
-        if (isCurrentlyWishlisted) {
-          next.add(skinUuid);
-        } else {
-          next.delete(skinUuid);
-        }
-        return next;
-      });
+      // Network error — settled below like a rejection
     }
+
+    if (accepted && generation > entry.confirmedGeneration) {
+      entry.confirmed = !isCurrentlyWishlisted;
+      entry.confirmedGeneration = generation;
+    }
+    entry.pending -= 1;
+    if (entry.pending > 0) return;
+    inFlight.current.delete(skinUuid);
+
+    // Every toggle rejected — none carries intent worth keeping over the
+    // fetched wishlist
+    if (entry.confirmedGeneration === 0) {
+      locallyToggled.current.delete(skinUuid);
+    }
+    setWishlistSet((prev) => {
+      const next = new Set(prev);
+      if (entry.confirmed) {
+        next.add(skinUuid);
+      } else {
+        next.delete(skinUuid);
+      }
+      return next;
+    });
   };
 
   return (

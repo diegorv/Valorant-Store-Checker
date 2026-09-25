@@ -115,6 +115,75 @@ describe("useWishlist", () => {
     });
   });
 
+  describe("Toggles of one skin that overlap in flight", () => {
+    function mockHeldFetches() {
+      const settleFetch: Array<(res: Response) => void> = [];
+      const fetches: Array<Promise<Response>> = [];
+      vi.spyOn(global, "fetch").mockImplementation(() => {
+        const pending = new Promise<Response>((resolve) => settleFetch.push(resolve));
+        fetches.push(pending);
+        return pending;
+      });
+      return async function settle(index: number, res: Response) {
+        await act(async () => {
+          settleFetch[index]!(res);
+          await fetches[index];
+        });
+      };
+    }
+
+    function toggleWithoutWaiting(result: { current: ReturnType<typeof useWishlist> }) {
+      // Each toggle runs in its own act so the next one sees the re-rendered state
+      act(() => {
+        void result.current.toggleWishlist("skin-123", mockStoreItem);
+      });
+    }
+
+    it("leaves the skin off the wishlist when both requests are rejected", async () => {
+      const settle = mockHeldFetches();
+      const { result } = renderHook(() => useWishlist([]));
+
+      toggleWithoutWaiting(result);
+      toggleWithoutWaiting(result);
+
+      await settle(0, failResponse(401, "Unauthorized"));
+      await settle(1, failResponse(401, "Unauthorized"));
+
+      expect(result.current.isWishlisted("skin-123")).toBe(false);
+    });
+
+    // Two toggles cannot tell the fix apart: the stale request's rollback target
+    // equals the newer request's target. A third toggle makes them differ.
+    it("does not let a stale rejection roll back what a newer accepted request set", async () => {
+      const settle = mockHeldFetches();
+      const { result } = renderHook(() => useWishlist([]));
+
+      toggleWithoutWaiting(result);
+      toggleWithoutWaiting(result);
+      toggleWithoutWaiting(result);
+
+      await settle(2, okResponse());
+      await settle(0, failResponse(401, "Unauthorized"));
+      expect(result.current.isWishlisted("skin-123")).toBe(true);
+
+      await settle(1, failResponse(401, "Unauthorized"));
+      expect(result.current.isWishlisted("skin-123")).toBe(true);
+    });
+
+    it("settles on the last toggle when two accepted responses land in reverse order", async () => {
+      const settle = mockHeldFetches();
+      const { result } = renderHook(() => useWishlist([]));
+
+      toggleWithoutWaiting(result);
+      toggleWithoutWaiting(result);
+
+      await settle(1, okResponse());
+      await settle(0, okResponse());
+
+      expect(result.current.isWishlisted("skin-123")).toBe(false);
+    });
+  });
+
   describe("UUID comparison is case-insensitive", () => {
     it("removes an entry stored with different casing", async () => {
       vi.spyOn(global, "fetch").mockResolvedValue(okResponse());

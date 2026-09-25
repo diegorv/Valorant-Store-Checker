@@ -129,6 +129,93 @@ describe("EncyclopediaClient", () => {
     });
   });
 
+  // The toggle requests are held open so a heart can be clicked again before the
+  // first round-trip ends, then each request is settled in a chosen order.
+  describe("Hearts clicked again before the first request settles", () => {
+    function mockHeldToggles() {
+      const settleToggle: Array<(res: Response) => void> = [];
+      const toggleFetches: Array<Promise<Response>> = [];
+
+      vi.spyOn(global, "fetch").mockImplementation(
+        async (_input: RequestInfo | URL, init?: RequestInit) => {
+          if (!init?.method) {
+            return { ok: true, json: async () => ({ items: [] }) } as Response;
+          }
+          const toggleFetch = new Promise<Response>((resolve) => settleToggle.push(resolve));
+          toggleFetches.push(toggleFetch);
+          return toggleFetch;
+        }
+      );
+
+      return async function settle(index: number, res: Partial<Response>) {
+        await act(async () => {
+          settleToggle[index]!(res as Response);
+          await toggleFetches[index];
+        });
+      };
+    }
+
+    const rejected = { ok: false, status: 401, statusText: "Unauthorized" };
+    const accepted = { ok: true, status: 200, statusText: "OK" };
+
+    async function renderVandal() {
+      const page = within(
+        render(<EncyclopediaClient skins={[primeVandal]} tiers={[]} tierMap={new Map()} />).container
+      );
+      const vandal = within(page.getByRole("article", { name: /Prime Vandal/ }));
+      // Let the mount GET land so it cannot interleave with the toggles
+      await act(async () => {});
+      return vandal;
+    }
+
+    it("leaves the skin off the wishlist when both requests are rejected", async () => {
+      const settle = mockHeldToggles();
+      const user = userEvent.setup();
+      const vandal = await renderVandal();
+
+      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+      await user.click(vandal.getByRole("button", { name: /remove from wishlist/i }));
+
+      await settle(0, rejected);
+      await settle(1, rejected);
+
+      expect(vandal.getByRole("button", { name: /add to wishlist/i })).toBeTruthy();
+    });
+
+    // Two toggles cannot tell the fix apart: the stale request's rollback target
+    // equals the newer request's target. A third toggle makes them differ.
+    it("does not let a stale rejection roll back what a newer accepted request set", async () => {
+      const settle = mockHeldToggles();
+      const user = userEvent.setup();
+      const vandal = await renderVandal();
+
+      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+      await user.click(vandal.getByRole("button", { name: /remove from wishlist/i }));
+      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+
+      await settle(2, accepted);
+      await settle(0, rejected);
+      expect(vandal.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
+
+      await settle(1, rejected);
+      expect(vandal.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
+    });
+
+    it("settles on the last click when two accepted responses land in reverse order", async () => {
+      const settle = mockHeldToggles();
+      const user = userEvent.setup();
+      const vandal = await renderVandal();
+
+      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+      await user.click(vandal.getByRole("button", { name: /remove from wishlist/i }));
+
+      await settle(1, accepted);
+      await settle(0, accepted);
+
+      expect(vandal.getByRole("button", { name: /add to wishlist/i })).toBeTruthy();
+    });
+  });
+
   // In development the page runs under Strict Mode, so the mount effect fires
   // twice and the second payload lands after the first one already has.
   describe("A heart toggled between Strict Mode's two mount fetches", () => {
