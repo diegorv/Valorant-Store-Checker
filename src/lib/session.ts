@@ -284,8 +284,9 @@ export async function getCurrentSessionId(): Promise<string | null> {
 }
 
 /**
- * Internal: revokes the session the cookie currently points at, without
- * touching the cookie itself.
+ * Revokes the session the cookie currently points at, without touching the
+ * cookie itself — which is what makes it safe from a Server Component, where
+ * cookies cannot be written.
  *
  * Drops the row from the store AND evicts the token from the LRU — skipping
  * the eviction would let a replayed JWT be served from cache for up to the
@@ -294,7 +295,7 @@ export async function getCurrentSessionId(): Promise<string | null> {
  * A deleted cookie reads back as an empty string rather than undefined, so an
  * already-cleared cookie falls out on the `!token` guard.
  */
-async function revokeCurrentSession(): Promise<void> {
+export async function revokeCurrentSession(): Promise<void> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
