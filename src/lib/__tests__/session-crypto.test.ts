@@ -44,6 +44,12 @@ describe("encrypt / decrypt", () => {
     expect(() => decrypt(tamper(encrypt("secret", KEY), segment), KEY)).toThrow();
   });
 
+  it.each([4, 12])("rejects a value whose auth tag was truncated to %i bytes", (bytes) => {
+    const parts = encrypt("secret", KEY).split(":");
+    parts[1] = parts[1]!.slice(0, bytes * 2);
+    expect(() => decrypt(parts.join(":"), KEY)).toThrow();
+  });
+
   it.each(["abc:def", "a:b:c:d", "no-colons"])(
     "rejects %s as not being iv:authTag:ciphertext",
     (value) => {
