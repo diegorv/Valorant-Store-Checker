@@ -114,7 +114,12 @@ export function _resetSessionCache(): void {
 }
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 const TOKEN_EXPIRY_THRESHOLD = 55 * 60 * 1000; // 55 minutes in ms
-const TOKEN_HARD_EXPIRY = 65 * 60 * 1000; // 65 minutes
+/**
+ * Pause before each retry of a Riot refresh. Cookie re-auth fails
+ * intermittently on a perfectly healthy session, so one attempt per page load
+ * is not enough evidence to give up on it.
+ */
+const REFRESH_RETRY_DELAYS_MS = [500, 1500];
 
 // Export SessionData for other consumers (re-export)
 export type { StoredSession as SessionData } from "./schemas/session";
@@ -365,59 +370,78 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
     Math.round(tokenAge / 60000),
   );
 
-  const isTokenDefinitelyDead = tokenAge > TOKEN_HARD_EXPIRY;
-
   if (!session.riotCookies) {
-    log.warn("No stored Riot cookies for token refresh");
-    if (isTokenDefinitelyDead) {
+    // Nothing to refresh with, now or on any later visit.
+    log.warn("No stored Riot cookies for token refresh — dropping session");
+    await dropDeadSession(sessionId);
+    return null;
+  }
+
+  const refreshResult = await refreshWithRetry(session.riotCookies);
+
+  if (!refreshResult.success) {
+    if (refreshResult.sessionDead) {
+      // Riot itself rejected the cookies: only this answer justifies deleting
+      // the row. A timeout or a 5xx says nothing about the ssid, and deleting
+      // on those turned every transient blip into a forced re-login.
+      log.warn("Riot rejected the stored session — dropping it");
       await dropDeadSession(sessionId);
       return null;
     }
+    log.warn("Token refresh failed after retries: %s", refreshResult.error);
     return { ...session, _refreshFailed: true };
   }
 
-  try {
-    const refreshResult = await refreshTokensWithCookies(session.riotCookies);
+  // Update store in-place with refreshed data (no cookie change needed)
+  const freshSession: SessionData = {
+    accessToken: refreshResult.tokens.accessToken,
+    idToken: refreshResult.tokens.idToken,
+    entitlementsToken: refreshResult.tokens.entitlementsToken,
+    puuid: refreshResult.tokens.puuid,
+    region: refreshResult.tokens.region,
+    gameName: refreshResult.tokens.gameName,
+    tagLine: refreshResult.tokens.tagLine,
+    country: refreshResult.tokens.country,
+    riotCookies: refreshResult.riotCookies,
+    createdAt: Date.now(),
+  };
 
-    if (!refreshResult.success) {
-      log.warn("Token refresh failed: %s", refreshResult.error);
-      if (isTokenDefinitelyDead) {
-        await dropDeadSession(sessionId);
-        return null;
-      }
-      return { ...session, _refreshFailed: true };
+  await saveSessionToStore(sessionId, freshSession, SESSION_MAX_AGE);
+
+  // Invalidate LRU cache so next getSessionInternal() call fetches fresh data
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (token) _sessionCache.invalidate(token);
+
+  log.info("Session refreshed successfully (in-place update)");
+
+  return freshSession;
+}
+
+/**
+ * Calls the Riot refresh up to one time per entry in REFRESH_RETRY_DELAYS_MS
+ * plus one. Stops early on success or on Riot's explicit rejection; a thrown
+ * error counts as a transient failure like any other.
+ */
+async function refreshWithRetry(
+  riotCookies: string,
+): Promise<Awaited<ReturnType<typeof refreshTokensWithCookies>>> {
+  let last: Awaited<ReturnType<typeof refreshTokensWithCookies>> = {
+    success: false,
+    error: "Refresh not attempted",
+  };
+  for (let attempt = 0; attempt <= REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAYS_MS[attempt - 1]));
     }
-
-    // Update store in-place with refreshed data (no cookie change needed)
-    const freshSession: SessionData = {
-      accessToken: refreshResult.tokens.accessToken,
-      idToken: refreshResult.tokens.idToken,
-      entitlementsToken: refreshResult.tokens.entitlementsToken,
-      puuid: refreshResult.tokens.puuid,
-      region: refreshResult.tokens.region,
-      gameName: refreshResult.tokens.gameName,
-      tagLine: refreshResult.tokens.tagLine,
-      country: refreshResult.tokens.country,
-      riotCookies: refreshResult.riotCookies,
-      createdAt: Date.now(),
-    };
-
-    await saveSessionToStore(sessionId, freshSession, SESSION_MAX_AGE);
-
-    // Invalidate LRU cache so next getSessionInternal() call fetches fresh data
-    const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-    if (token) _sessionCache.invalidate(token);
-
-    log.info("Session refreshed successfully (in-place update)");
-
-    return freshSession;
-  } catch (error) {
-    log.error("Token refresh error:", error);
-    if (isTokenDefinitelyDead) {
-      await dropDeadSession(sessionId);
-      return null;
+    try {
+      last = await refreshTokensWithCookies(riotCookies);
+    } catch (error) {
+      log.error("Token refresh error (attempt %d):", attempt + 1, error);
+      last = { success: false, error: error instanceof Error ? error.message : "Refresh threw" };
     }
-    return { ...session, _refreshFailed: true };
+    if (last.success || last.sessionDead) return last;
+    log.warn("Token refresh attempt %d failed: %s", attempt + 1, last.error);
   }
+  return last;
 }

@@ -196,7 +196,19 @@ describe("refreshTokensWithCookies", () => {
     const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
     const result = await refreshTokensWithCookies("ssid=expired-ssid");
 
+    expect(result).toMatchObject({ success: false, sessionDead: true });
+  });
+
+  it("transient failure: non-redirect status → success=false WITHOUT sessionDead", async () => {
+    server.use(
+      http.get(RIOT_AUTHORIZE_URL, () => new HttpResponse(null, { status: 503 })),
+    );
+
+    const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
+    const result = await refreshTokensWithCookies("ssid=still-good-ssid");
+
     expect(result.success).toBe(false);
+    if (!result.success) expect(result.sessionDead).toBeUndefined();
   });
 });
 

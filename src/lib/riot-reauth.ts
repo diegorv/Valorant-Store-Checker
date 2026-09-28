@@ -106,6 +106,11 @@ async function completeRefresh(
  * After success, the ORIGINAL ssid is preserved (not replaced by the
  * response's short-lived session ssid) so future refreshes keep working.
  *
+ * A failure carries `sessionDead: true` only when Riot explicitly rejected the
+ * session (redirect to its login page). Every other failure — timeout, network
+ * error, unexpected status — is transient and the stored cookies may still be
+ * good, so callers must not discard them on that basis.
+ *
  * @param riotCookies Stored Riot session cookies from a previous login
  * @returns Fresh tokens + updated cookies, or error
  */
@@ -116,7 +121,7 @@ export async function refreshTokensWithCookies(riotCookies: string): Promise<
       riotCookies: string;
       namedCookies: RiotSessionCookies;
     }
-  | { success: false; error: string }
+  | { success: false; error: string; sessionDead?: boolean }
 > {
   try {
     const named = extractNamedCookies(riotCookies);
@@ -184,6 +189,7 @@ export async function refreshTokensWithCookies(riotCookies: string): Promise<
         return {
           success: false,
           error: "Session expired (redirected to login)",
+          sessionDead: true,
         };
       }
 
