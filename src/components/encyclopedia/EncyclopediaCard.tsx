@@ -6,7 +6,7 @@ import type { EncyclopediaCardProps } from "@/types/encyclopedia";
 import { getEditionIconPath } from "@/lib/edition-icons";
 import { fetchAndCacheBlurDataURL, DEFAULT_BLUR } from "@/lib/blur-utils";
 
-export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, staggerDelay = 0 }: EncyclopediaCardProps) {
+export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, wishlistDisabled = false, staggerDelay = 0 }: EncyclopediaCardProps) {
   const [isPulsing, setIsPulsing] = useState(false);
   const [wallpaperBlur, setWallpaperBlur] = useState<string>(DEFAULT_BLUR);
 
@@ -70,7 +70,8 @@ export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlis
           {onWishlistToggle && (
             <button
               onClick={handleHeartClick}
-              className={`absolute top-3 right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full transition-all ${
+              disabled={wishlistDisabled}
+              className={`absolute top-3 right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full transition-all disabled:cursor-wait ${
                 isWishlisted
                   ? "bg-brand/20 hover:bg-brand/30"
                   : "bg-void-deep/80 hover:bg-void-surface"

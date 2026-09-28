@@ -35,7 +35,7 @@ export function EncyclopediaGrid({
   activeEditions,
   setActiveEditions,
   wishlistSet,
-  loadingWishlist: _loadingWishlist,
+  loadingWishlist,
   toggleWishlist,
 }: EncyclopediaGridProps) {
   // Composable filtering: weapon -> edition -> search
@@ -272,6 +272,8 @@ export function EncyclopediaGrid({
                 skin={skin}
                 isWishlisted={isWishlisted}
                 onWishlistToggle={handleToggleWishlist}
+                // The first fetch's payload would predate a toggle made before it lands
+                wishlistDisabled={loadingWishlist}
                 staggerDelay={0}
               />
             );

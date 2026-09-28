@@ -63,6 +63,31 @@ describe("EncyclopediaCard", () => {
     });
   });
 
+  describe("Disabled heart", () => {
+    it("renders the heart disabled and a click does not call onWishlistToggle", async () => {
+      const user = userEvent.setup();
+      const onWishlistToggle = vi.fn();
+
+      const card = within(
+        render(
+          <EncyclopediaCard
+            skin={mockSkin}
+            isWishlisted={false}
+            onWishlistToggle={onWishlistToggle}
+            wishlistDisabled
+          />
+        ).container
+      );
+
+      const heart = card.getByRole("button", { name: /add to wishlist/i });
+      expect((heart as HTMLButtonElement).disabled).toBe(true);
+
+      await user.click(heart);
+
+      expect(onWishlistToggle).not.toHaveBeenCalled();
+    });
+  });
+
   // End-to-end over the real tree (EncyclopediaClient -> EncyclopediaGrid -> EncyclopediaCard).
   // The card shows only the parent's state, so the parent's rollback is what puts
   // the heart back.

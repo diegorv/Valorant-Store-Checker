@@ -13,8 +13,9 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
   // Wishlist state
   const [wishlistSet, setWishlistSet] = useState<Set<string>>(new Set());
   const [loadingWishlist, setLoadingWishlist] = useState(true);
-  // Skins the user toggled. The mount fetch's payload can predate a toggle, so
-  // the local state wins for these when that payload lands
+  // Skins the user toggled. The hearts wait for the first mount fetch, so its
+  // payload can only predate a toggle between Strict Mode's two mount fetches;
+  // the local state wins for these when that second payload lands
   const locallyToggled = useRef<Set<string>>(new Set());
   // Written together with the state, so a queued toggle reads what the
   // previous request left rather than a render's closure
