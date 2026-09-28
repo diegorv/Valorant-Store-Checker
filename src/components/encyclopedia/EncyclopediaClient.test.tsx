@@ -43,89 +43,93 @@ describe("EncyclopediaClient", () => {
     vi.restoreAllMocks();
   });
 
-  // The mount GET is held open so a heart can be toggled while it is in flight.
-  // Its payload then predates the click, exactly like a slow first load.
-  describe("A heart toggled while the first wishlist fetch is in flight", () => {
-    function mockSlowWishlistApi(toggleResponse: Partial<Response>) {
-      let resolveMount!: (items: WishlistItem[]) => void;
+  // The mount GET is held open to model a slow first load. Its payload would
+  // predate any toggle made meanwhile, so the hearts wait for it.
+  describe("Hearts while the first wishlist fetch is in flight", () => {
+    function mockSlowWishlistApi() {
+      let settle!: (res: Response) => void;
       const mountFetch = new Promise<Response>((resolve) => {
-        resolveMount = (items) =>
-          resolve({ ok: true, json: async () => ({ items }) } as Response);
+        settle = resolve;
       });
 
-      vi.spyOn(global, "fetch").mockImplementation(
+      const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(
         async (_input: RequestInfo | URL, init?: RequestInit) =>
           // The mount fetch has no method; the toggle fetch is POST/DELETE
-          init?.method ? (toggleResponse as Response) : mountFetch
+          init?.method ? ({ ok: true, status: 200, statusText: "OK" } as Response) : mountFetch
       );
 
-      return async function settleMount(items: WishlistItem[]) {
+      const toggleMethods = () =>
+        fetchSpy.mock.calls
+          .map(([, init]) => (init as RequestInit | undefined)?.method)
+          .filter(Boolean);
+
+      async function settleMount(res: Partial<Response>) {
         await act(async () => {
-          resolveMount(items);
+          settle(res as Response);
           await mountFetch;
         });
-      };
+      }
+
+      return { settleMount, toggleMethods };
     }
 
-    function renderEncyclopedia() {
-      return within(
+    function renderVandal() {
+      const page = within(
         render(
-          <EncyclopediaClient
-            skins={[primeVandal, rebornPhantom]}
-            tiers={[]}
-            tierMap={new Map()}
-          />
+          <EncyclopediaClient skins={[primeVandal]} tiers={[]} tierMap={new Map()} />
         ).container
       );
+      return within(page.getByRole("article", { name: /Prime Vandal/ }));
     }
 
-    it("survives the fetch landing, and the fetched wishlist still applies", async () => {
-      const settleMount = mockSlowWishlistApi({ ok: true, status: 200, statusText: "OK" });
+    it("are disabled, and a click sends nothing", async () => {
+      const { toggleMethods } = mockSlowWishlistApi();
       const user = userEvent.setup();
+      const vandal = renderVandal();
 
-      const page = renderEncyclopedia();
-      const vandal = within(page.getByRole("article", { name: /Prime Vandal/ }));
-      const phantom = within(page.getByRole("article", { name: /Reaver Phantom/ }));
+      const heart = vandal.getByRole("button", { name: /add to wishlist/i });
+      expect((heart as HTMLButtonElement).disabled).toBe(true);
 
-      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+      await user.click(heart);
 
-      // The GET lands with a list that predates the click
-      await settleMount([wishlistItem(rebornPhantom.uuid)]);
-
-      const vandalHeart = vandal.getByRole("button", { name: /remove from wishlist/i });
-      expect(vandalHeart.querySelector("svg")?.getAttribute("class")).toContain("fill-brand");
-      expect(phantom.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
+      expect(toggleMethods()).toEqual([]);
+      expect(vandal.getByRole("button", { name: /add to wishlist/i })).toBeTruthy();
     });
 
-    it("stays empty when the server rejected it, even if the fetch lands afterwards", async () => {
-      const settleMount = mockSlowWishlistApi({ ok: false, status: 401, statusText: "Unauthorized" });
+    it("work once the fetch lands: a click sends the add and it stays", async () => {
+      const { settleMount, toggleMethods } = mockSlowWishlistApi();
       const user = userEvent.setup();
+      const vandal = renderVandal();
 
-      const page = renderEncyclopedia();
-      const vandal = within(page.getByRole("article", { name: /Prime Vandal/ }));
+      await settleMount({ ok: true, json: async () => ({ items: [] }) });
 
-      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+      const heart = vandal.getByRole("button", { name: /add to wishlist/i });
+      expect((heart as HTMLButtonElement).disabled).toBe(false);
 
-      await settleMount([]);
+      await user.click(heart);
 
-      const vandalHeart = vandal.getByRole("button", { name: /add to wishlist/i });
-      expect(vandalHeart.querySelector("svg")?.getAttribute("class")).toContain("fill-none");
+      expect(toggleMethods()).toEqual(["POST"]);
+      expect(vandal.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
     });
 
-    it("follows the fetched wishlist when the server rejected it and already had the skin", async () => {
-      const settleMount = mockSlowWishlistApi({ ok: false, status: 401, statusText: "Unauthorized" });
-      const user = userEvent.setup();
+    it("follow the fetched wishlist once it lands", async () => {
+      const { settleMount } = mockSlowWishlistApi();
+      const vandal = renderVandal();
 
-      const page = renderEncyclopedia();
-      const vandal = within(page.getByRole("article", { name: /Prime Vandal/ }));
+      await settleMount({ ok: true, json: async () => ({ items: [wishlistItem(primeVandal.uuid)] }) });
 
-      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+      const heart = vandal.getByRole("button", { name: /remove from wishlist/i });
+      expect((heart as HTMLButtonElement).disabled).toBe(false);
+    });
 
-      // The GET lands holding the very skin whose toggle was just rejected
-      await settleMount([wishlistItem(primeVandal.uuid)]);
+    it("work once the fetch fails", async () => {
+      const { settleMount } = mockSlowWishlistApi();
+      const vandal = renderVandal();
 
-      const vandalHeart = vandal.getByRole("button", { name: /remove from wishlist/i });
-      expect(vandalHeart.querySelector("svg")?.getAttribute("class")).toContain("fill-brand");
+      await settleMount({ ok: false, status: 500, statusText: "Internal Server Error" });
+
+      const heart = vandal.getByRole("button", { name: /add to wishlist/i });
+      expect((heart as HTMLButtonElement).disabled).toBe(false);
     });
   });
 
@@ -256,13 +260,13 @@ describe("EncyclopediaClient", () => {
   // In development the page runs under Strict Mode, so the mount effect fires
   // twice and the second payload lands after the first one already has.
   describe("A heart toggled between Strict Mode's two mount fetches", () => {
-    it("survives the second payload landing", async () => {
+    function mockStrictModeWishlistApi(toggleResponse: Partial<Response>) {
       const resolveMount: Array<(res: Response) => void> = [];
       const mountFetches: Array<Promise<Response>> = [];
 
       vi.spyOn(global, "fetch").mockImplementation(
         async (_input: RequestInfo | URL, init?: RequestInit) => {
-          if (init?.method) return { ok: true, status: 200 } as Response;
+          if (init?.method) return toggleResponse as Response;
           const mountFetch = new Promise<Response>((resolve) => resolveMount.push(resolve));
           mountFetches.push(mountFetch);
           return mountFetch;
@@ -276,14 +280,23 @@ describe("EncyclopediaClient", () => {
         });
       }
 
-      const user = userEvent.setup();
-      const page = within(
+      return { resolveMount, settleMount };
+    }
+
+    function renderStrict() {
+      return within(
         render(
           <StrictMode>
             <EncyclopediaClient skins={[primeVandal]} tiers={[]} tierMap={new Map()} />
           </StrictMode>
         ).container
       );
+    }
+
+    it("survives the second payload landing", async () => {
+      const { resolveMount, settleMount } = mockStrictModeWishlistApi({ ok: true, status: 200 });
+      const user = userEvent.setup();
+      const page = renderStrict();
       expect(resolveMount).toHaveLength(2);
 
       await settleMount(0, []);
@@ -293,6 +306,27 @@ describe("EncyclopediaClient", () => {
 
       // The second GET still carries the list that predates the click
       await settleMount(1, []);
+
+      expect(vandal.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
+    });
+
+    it("follows the fetched wishlist when the server rejected it and already had the skin", async () => {
+      const { resolveMount, settleMount } = mockStrictModeWishlistApi({
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+      });
+      const user = userEvent.setup();
+      const page = renderStrict();
+      expect(resolveMount).toHaveLength(2);
+
+      await settleMount(0, []);
+
+      const vandal = within(page.getByRole("article", { name: /Prime Vandal/ }));
+      await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
+
+      // The second GET lands holding the very skin whose toggle was just rejected
+      await settleMount(1, [wishlistItem(primeVandal.uuid)]);
 
       expect(vandal.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
     });

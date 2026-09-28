@@ -42,5 +42,7 @@ export interface EncyclopediaCardProps {
   skin: EncyclopediaSkin;
   isWishlisted: boolean;
   onWishlistToggle?: (skinUuid: string, skin: EncyclopediaSkin) => void;
+  /** The heart ignores clicks while the wishlist it would toggle is still loading */
+  wishlistDisabled?: boolean;
   staggerDelay?: number;
 }
