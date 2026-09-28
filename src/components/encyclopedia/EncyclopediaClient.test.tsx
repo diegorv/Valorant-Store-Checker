@@ -283,11 +283,11 @@ describe("EncyclopediaClient", () => {
       return { resolveMount, settleMount };
     }
 
-    function renderStrict() {
+    function renderStrict(skins: EncyclopediaSkin[] = [primeVandal]) {
       return within(
         render(
           <StrictMode>
-            <EncyclopediaClient skins={[primeVandal]} tiers={[]} tierMap={new Map()} />
+            <EncyclopediaClient skins={skins} tiers={[]} tierMap={new Map()} />
           </StrictMode>
         ).container
       );
@@ -296,7 +296,7 @@ describe("EncyclopediaClient", () => {
     it("survives the second payload landing", async () => {
       const { resolveMount, settleMount } = mockStrictModeWishlistApi({ ok: true, status: 200 });
       const user = userEvent.setup();
-      const page = renderStrict();
+      const page = renderStrict([primeVandal, rebornPhantom]);
       expect(resolveMount).toHaveLength(2);
 
       await settleMount(0, []);
@@ -304,10 +304,12 @@ describe("EncyclopediaClient", () => {
       const vandal = within(page.getByRole("article", { name: /Prime Vandal/ }));
       await user.click(vandal.getByRole("button", { name: /add to wishlist/i }));
 
-      // The second GET still carries the list that predates the click
-      await settleMount(1, []);
+      // The second GET predates the click, but carries the Phantom
+      await settleMount(1, [wishlistItem(rebornPhantom.uuid)]);
 
+      const phantom = within(page.getByRole("article", { name: /Reaver Phantom/ }));
       expect(vandal.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
+      expect(phantom.getByRole("button", { name: /remove from wishlist/i })).toBeTruthy();
     });
 
     it("follows the fetched wishlist when the server rejected it and already had the skin", async () => {

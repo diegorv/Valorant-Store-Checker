@@ -213,7 +213,7 @@ describe("a login that fails between the registry and the main session", () => {
     expectRegistryDroppedBravo(registry);
   });
 
-  it("refuses the switch when the main session write fails after alpha was revoked", async () => {
+  it("refuses the switch and touches nothing when the main session write fails after alpha was revoked", async () => {
     // createSession revokes alpha's row before the write that throws, so
     // nobody is signed in afterwards.
     await strandBravo(() => {
@@ -224,10 +224,36 @@ describe("a login that fails between the registry and the main session", () => {
 
     expect(await switchAccount("puuid-bravo")).toBe(false);
 
+    // With no live session there is nothing to compare the registry against,
+    // so the switch neither signs in nor cleans up.
     expect(await getSession()).toBeNull();
     const registry = await getAccounts();
-    expect(registry?.activePuuid).toBeNull();
-    expectRegistryDroppedBravo(registry);
+    expect(registry?.activePuuid).toBe("puuid-bravo");
+    expect(registry?.accounts.map((account) => account.puuid)).toEqual([
+      "puuid-alpha",
+      "puuid-bravo",
+    ]);
+    expect(jar.get("valorant_session_puuid-br")).toBeTruthy();
+  });
+
+  it("refuses the switch and drops nothing when the session read fails", async () => {
+    await registerAuthenticatedSession(tokensFor("alpha"), "");
+    await registerAuthenticatedSession(tokensFor("bravo"), "");
+    _resetSessionCache();
+
+    // getSession swallows the throw and returns null, like a missing session.
+    failNextReadOf = "valorant_session";
+    expect(await switchAccount("puuid-alpha")).toBe(false);
+
+    expect((await getSession())?.puuid).toBe("puuid-bravo");
+    const registry = await getAccounts();
+    expect(registry?.activePuuid).toBe("puuid-bravo");
+    expect(registry?.accounts.map((account) => account.puuid)).toEqual([
+      "puuid-alpha",
+      "puuid-bravo",
+    ]);
+    expect(jar.get("valorant_session_puuid-al")).toBeTruthy();
+    expect(jar.get("valorant_session_puuid-br")).toBeTruthy();
   });
 
   it("drops the other account when the previous switch failed on its final registry write", async () => {

@@ -343,10 +343,17 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
   // Checked on every switch, since the switcher disables the entry marked
   // active and the reachable path is a switch away and then back.
   const currentSession = await getSession();
+  // The only caller sits behind withSession, so a null here means the session
+  // read failed (getSession returns null for that too). The switch must not
+  // act on it: no cleanup against a session it cannot see, and no sign-in.
+  if (!currentSession) {
+    log.warn("No live session; refusing to switch");
+    return false;
+  }
   const stranded = registry.activePuuid;
-  if (stranded && stranded !== currentSession?.puuid) {
+  if (stranded && stranded !== currentSession.puuid) {
     registry.accounts = registry.accounts.filter((acc) => acc.puuid !== stranded);
-    registry.activePuuid = currentSession?.puuid ?? null;
+    registry.activePuuid = currentSession.puuid;
     await deleteAccountSession(stranded);
     await saveAccounts(registry);
     log.warn(`Dropped half-registered account ${getShortPuuid(stranded)}`);
@@ -362,8 +369,8 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
     return false;
   }
 
-  // Save current active session to its per-account cookie (if exists)
-  if (currentSession && currentSession.puuid !== targetPuuid) {
+  // Save current active session to its per-account cookie
+  if (currentSession.puuid !== targetPuuid) {
     await saveAccountSession(currentSession.puuid, currentSession);
     log.info(
       `Saved current session for ${getShortPuuid(currentSession.puuid)}`
