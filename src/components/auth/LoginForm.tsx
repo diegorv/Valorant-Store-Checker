@@ -102,13 +102,13 @@ export function LoginForm() {
                   <p>1. In the opened Riot Login window, press <strong>F12</strong> to open Developer Tools.</p>
                   <p>2. Go to the <strong>Application</strong> tab (you may need to click &apos;&gt;&apos; to find it).</p>
                   <p>3. In the left sidebar, expand <strong>Cookies</strong> and select <code>https://auth.riotgames.com</code>.</p>
-                  <p>4. You will see a list of cookies. You can either:</p>
-                  <ul className="list-disc pl-5 mt-1 space-y-1">
-                    <li>Type <code>document.cookie</code> in the <strong>Console</strong> tab and copy the result (Easiest).</li>
-                    <li>Or manually copy <code>ssid</code>, <code>tdid</code>, <code>clid</code>, <code>csid</code> values.</li>
-                  </ul>
+                  <p>4. Copy the <strong>Value</strong> of <code>ssid</code>, <code>tdid</code>, <code>clid</code> and <code>csid</code> and paste them as one line:</p>
+                  <p className="font-mono text-xs break-all">ssid=...; tdid=...; clid=...; csid=...</p>
                   <p className="mt-2 text-xs italic text-zinc-600">
-                    Note: The easiest way is to just copy the **URL** from the address bar after logging in, but cookies last longer.
+                    <code>document.cookie</code> in the Console will not work: <code>ssid</code> is an HttpOnly cookie, so it never appears there, and without it the session cannot be refreshed.
+                  </p>
+                  <p className="text-xs italic text-zinc-600">
+                    Copying the URL is faster, but that session lasts about an hour. Cookies keep you signed in for weeks.
                   </p>
                 </div>
               </details>
