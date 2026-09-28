@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { SessionData } from "@/lib/schemas/session";
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,18 @@ function makeSession(overrides: Partial<SessionData> = {}): SessionData {
 // Tests
 // ---------------------------------------------------------------------------
 
+/** Runs a refresh under fake timers so the retry backoff completes instantly. */
+async function settleWithTimers<T>(pending: Promise<T>): Promise<T> {
+  await vi.runAllTimersAsync();
+  return pending;
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.clearAllMocks();
   _resetSessionCache();
 });
@@ -119,43 +130,28 @@ describe("getSessionWithRefresh — branching logic", () => {
     expect(result!.accessToken).toBe("fresh-token");
   });
 
-  it("token at 56 minutes (refresh fails): returns original session (graceful degradation)", async () => {
+  it("token at 56 minutes (refresh fails transiently): returns original session flagged, row kept", async () => {
     const session = makeSession({
       createdAt: Date.now() - 56 * 60 * 1000,
     });
     mockGetSession.mockResolvedValue(session);
     mockRefresh.mockResolvedValue({
       success: false,
-      error: "SSID expired",
+      error: "SSID re-auth failed with status 503",
     });
 
-    const result = await getSessionWithRefresh();
+    const result = await settleWithTimers(getSessionWithRefresh());
 
     // Graceful degradation: stale token returned, session NOT deleted
     expect(result).not.toBeNull();
     expect(result!.accessToken).toBe("test-access-token");
+    expect(result!._refreshFailed).toBe(true);
     expect(mockDeleteSession).not.toHaveBeenCalled();
   });
 
-  it("token at 66 minutes (refresh fails): session deleted, returns null", async () => {
+  it("no riotCookies: refresh NOT called, session deleted, returns null", async () => {
     const session = makeSession({
-      createdAt: Date.now() - 66 * 60 * 1000, // 66 minutes ago — past hard expiry
-    });
-    mockGetSession.mockResolvedValue(session);
-    mockRefresh.mockResolvedValue({
-      success: false,
-      error: "SSID expired",
-    });
-
-    const result = await getSessionWithRefresh();
-
-    expect(mockDeleteSession).toHaveBeenCalledWith("test-session-id");
-    expect(result).toBeNull();
-  });
-
-  it("token at 66 minutes (no riotCookies): refresh NOT called, session deleted, returns null", async () => {
-    const session = makeSession({
-      createdAt: Date.now() - 66 * 60 * 1000,
+      createdAt: Date.now() - 56 * 60 * 1000,
       riotCookies: undefined,
     });
     mockGetSession.mockResolvedValue(session);
@@ -163,6 +159,75 @@ describe("getSessionWithRefresh — branching logic", () => {
     const result = await getSessionWithRefresh();
 
     expect(mockRefresh).not.toHaveBeenCalled();
+    expect(mockDeleteSession).toHaveBeenCalledWith("test-session-id");
+    expect(result).toBeNull();
+  });
+});
+
+describe("getSessionWithRefresh — a transient failure never deletes the session", () => {
+  // Regression: one failed refresh per page load, with no retry, deleted the
+  // store row once the token was past 65 minutes. Riot's cookie re-auth fails
+  // intermittently on healthy sessions, so "come back after a few hours" meant
+  // "log in again". Only Riot's explicit rejection may delete the row.
+
+  const IDLE_TOKEN_AGE = 4 * 60 * 60 * 1000; // hours idle, well past the old 65-minute hard expiry
+
+  it.each([
+    {
+      name: "timeout / unexpected status",
+      arrange: () => mockRefresh.mockResolvedValue({ success: false, error: "SSID re-auth failed with status 503" }),
+    },
+    {
+      name: "network error (refresh throws)",
+      arrange: () => mockRefresh.mockRejectedValue(new Error("network down")),
+    },
+  ])("$name: row kept, session returned with _refreshFailed", async ({ arrange }) => {
+    mockGetSession.mockResolvedValue(makeSession({ createdAt: Date.now() - IDLE_TOKEN_AGE }));
+    arrange();
+
+    const result = await settleWithTimers(getSessionWithRefresh());
+
+    expect(mockDeleteSession).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ accessToken: "test-access-token", _refreshFailed: true });
+  });
+
+  it("retries: two transient failures then success saves the fresh session", async () => {
+    mockGetSession.mockResolvedValue(makeSession({ createdAt: Date.now() - IDLE_TOKEN_AGE }));
+    mockRefresh
+      .mockResolvedValueOnce({ success: false, error: "SSID re-auth failed with status 503" })
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce({
+        success: true,
+        tokens: { accessToken: "fresh-token", idToken: "fresh-id", entitlementsToken: "fresh-ent", puuid: "test-puuid", region: "na" },
+        riotCookies: "ssid=refreshed",
+      });
+
+    const result = await settleWithTimers(getSessionWithRefresh());
+
+    expect(mockRefresh).toHaveBeenCalledTimes(3);
+    expect(mockSaveSession).toHaveBeenCalledOnce();
+    expect(mockDeleteSession).not.toHaveBeenCalled();
+    expect(result!.accessToken).toBe("fresh-token");
+  });
+
+  it("gives up after the last retry and does not delete", async () => {
+    mockGetSession.mockResolvedValue(makeSession({ createdAt: Date.now() - IDLE_TOKEN_AGE }));
+    mockRefresh.mockResolvedValue({ success: false, error: "SSID re-auth failed with status 503" });
+
+    const result = await settleWithTimers(getSessionWithRefresh());
+
+    expect(mockRefresh).toHaveBeenCalledTimes(3);
+    expect(mockDeleteSession).not.toHaveBeenCalled();
+    expect(result!._refreshFailed).toBe(true);
+  });
+
+  it("Riot's explicit rejection deletes the row on the first attempt, no retry", async () => {
+    mockGetSession.mockResolvedValue(makeSession({ createdAt: Date.now() - 56 * 60 * 1000 }));
+    mockRefresh.mockResolvedValue({ success: false, error: "Session expired (redirected to login)", sessionDead: true });
+
+    const result = await settleWithTimers(getSessionWithRefresh());
+
+    expect(mockRefresh).toHaveBeenCalledOnce();
     expect(mockDeleteSession).toHaveBeenCalledWith("test-session-id");
     expect(result).toBeNull();
   });
@@ -177,23 +242,19 @@ describe("getSessionWithRefresh — a dropped session never comes back from the 
   // Each case: request 1 (/store) drops the session, request 2 (/login)
   // must see null too. The mocked store returns null once the row is gone.
 
-  const DEAD_TOKEN_AGE = 66 * 60 * 1000; // past the 65-minute hard expiry
+  const DEAD_TOKEN_AGE = 66 * 60 * 1000;
 
   it.each([
     {
-      name: "refresh fails",
+      name: "Riot rejects the session",
       session: () => makeSession({ createdAt: Date.now() - DEAD_TOKEN_AGE }),
-      arrange: () => mockRefresh.mockResolvedValue({ success: false, error: "SSID expired" }),
+      arrange: () =>
+        mockRefresh.mockResolvedValue({ success: false, error: "Session expired (redirected to login)", sessionDead: true }),
     },
     {
       name: "no riotCookies to refresh with",
       session: () => makeSession({ createdAt: Date.now() - DEAD_TOKEN_AGE, riotCookies: undefined }),
       arrange: () => {},
-    },
-    {
-      name: "refresh throws",
-      session: () => makeSession({ createdAt: Date.now() - DEAD_TOKEN_AGE }),
-      arrange: () => mockRefresh.mockRejectedValue(new Error("network down")),
     },
   ])("$name: getSession() on the next request returns null", async ({ session, arrange }) => {
     mockGetSession.mockResolvedValue(session());
