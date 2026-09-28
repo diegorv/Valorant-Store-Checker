@@ -333,6 +333,25 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
     return false;
   }
 
+  // A completed addAccount or switchAccount leaves activePuuid on the account
+  // the main session belongs to. If it names another, one of two things threw:
+  // addAccount between its registry write and createSession (that account's
+  // login failed, but its per-account row would still load), or a previous
+  // switchAccount on its final saveAccounts after createSession succeeded
+  // (that account is healthy). The two are indistinguishable here, so both
+  // drop the account; in the second case the user must log in to it again.
+  // Checked on every switch, since the switcher disables the entry marked
+  // active and the reachable path is a switch away and then back.
+  const currentSession = await getSession();
+  const stranded = registry.activePuuid;
+  if (stranded && stranded !== currentSession?.puuid) {
+    registry.accounts = registry.accounts.filter((acc) => acc.puuid !== stranded);
+    registry.activePuuid = currentSession?.puuid ?? null;
+    await deleteAccountSession(stranded);
+    await saveAccounts(registry);
+    log.warn(`Dropped half-registered account ${getShortPuuid(stranded)}`);
+  }
+
   // Check if target account exists
   const targetAccount = registry.accounts.find(
     (acc) => acc.puuid === targetPuuid
@@ -344,7 +363,6 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
   }
 
   // Save current active session to its per-account cookie (if exists)
-  const currentSession = await getSession();
   if (currentSession && currentSession.puuid !== targetPuuid) {
     await saveAccountSession(currentSession.puuid, currentSession);
     log.info(

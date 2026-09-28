@@ -38,10 +38,26 @@ const jar = new Map<string, string>();
 /** Names of the cookies written, in order — the login's side effects. */
 const cookieWrites: string[] = [];
 
+/** When set, the next write of this cookie throws once — a Set-Cookie that
+ * fails partway through a login. */
+let failNextWriteOf: string | null = null;
+
+/** When set, the next read of this cookie throws once. */
+let failNextReadOf: string | null = null;
+
 const cookieStore = {
-  get: (name: string) =>
-    jar.has(name) ? { name, value: jar.get(name)! } : undefined,
+  get: (name: string) => {
+    if (name === failNextReadOf) {
+      failNextReadOf = null;
+      throw new Error(`cookie read failed: ${name}`);
+    }
+    return jar.has(name) ? { name, value: jar.get(name)! } : undefined;
+  },
   set: (name: string, value: string) => {
+    if (name === failNextWriteOf) {
+      failNextWriteOf = null;
+      throw new Error(`cookie write failed: ${name}`);
+    }
     jar.set(name, value);
     cookieWrites.push(name);
   },
@@ -60,7 +76,9 @@ vi.mock("next/headers", () => ({
 // ---------------------------------------------------------------------------
 
 const { getSession, _resetSessionCache } = await import("@/lib/session");
-const { getAccounts, getActiveAccount } = await import("@/lib/accounts");
+const { getAccounts, getActiveAccount, switchAccount } = await import(
+  "@/lib/accounts"
+);
 const { SessionEncryptionUnavailableError } = await import(
   "@/lib/session-store"
 );
@@ -93,6 +111,8 @@ beforeEach(async () => {
   );
   jar.clear();
   cookieWrites.length = 0;
+  failNextWriteOf = null;
+  failNextReadOf = null;
   _resetSessionCache();
   process.env.ENCRYPTION_KEY = VALID_KEY;
 });
@@ -136,6 +156,99 @@ describe("a login that fails partway through", () => {
     expect(registry?.accounts.map((account) => account.puuid)).toEqual([
       "puuid-alpha",
     ]);
+  });
+});
+
+describe("a login that fails between the registry and the main session", () => {
+  /** Alpha signs in; bravo's login writes the registry and bravo's
+   * per-account copy, then createSession throws. */
+  async function strandBravo(failure: () => void, message: string) {
+    await registerAuthenticatedSession(tokensFor("alpha"), "");
+    failure();
+    await expect(
+      registerAuthenticatedSession(tokensFor("bravo"), ""),
+    ).rejects.toThrow(message);
+  }
+
+  function expectRegistryDroppedBravo(
+    registry: Awaited<ReturnType<typeof getAccounts>>,
+  ) {
+    expect(registry?.accounts.map((account) => account.puuid)).toEqual([
+      "puuid-alpha",
+    ]);
+    // deleteAccountSession cleared bravo's per-account cookie.
+    expect(jar.get("valorant_session_puuid-br")).toBe("");
+  }
+
+  it("refuses to switch into the half-registered account while alpha is still signed in", async () => {
+    // Throws before revokeCurrentSession touches anything: alpha stays live.
+    await strandBravo(() => {
+      failNextReadOf = "valorant_session";
+    }, "cookie read failed: valorant_session");
+
+    expect((await getSession())?.puuid).toBe("puuid-alpha");
+    expect((await getAccounts())?.activePuuid).toBe("puuid-bravo");
+
+    expect(await switchAccount("puuid-bravo")).toBe(false);
+
+    expect((await getSession())?.puuid).toBe("puuid-alpha");
+    const registry = await getAccounts();
+    expect(registry?.activePuuid).toBe("puuid-alpha");
+    expectRegistryDroppedBravo(registry);
+  });
+
+  it("drops the half-registered account on a switch to another account, so it cannot be reached next", async () => {
+    await strandBravo(() => {
+      failNextReadOf = "valorant_session";
+    }, "cookie read failed: valorant_session");
+
+    // The switcher disables the entry marked active (bravo), so the path a
+    // user can click is: switch to alpha, then to bravo.
+    expect(await switchAccount("puuid-alpha")).toBe(true);
+    expect(await switchAccount("puuid-bravo")).toBe(false);
+
+    expect((await getSession())?.puuid).toBe("puuid-alpha");
+    const registry = await getAccounts();
+    expect(registry?.activePuuid).toBe("puuid-alpha");
+    expectRegistryDroppedBravo(registry);
+  });
+
+  it("refuses the switch when the main session write fails after alpha was revoked", async () => {
+    // createSession revokes alpha's row before the write that throws, so
+    // nobody is signed in afterwards.
+    await strandBravo(() => {
+      failNextWriteOf = "valorant_session";
+    }, "cookie write failed: valorant_session");
+
+    expect(await getSession()).toBeNull();
+
+    expect(await switchAccount("puuid-bravo")).toBe(false);
+
+    expect(await getSession()).toBeNull();
+    const registry = await getAccounts();
+    expect(registry?.activePuuid).toBeNull();
+    expectRegistryDroppedBravo(registry);
+  });
+
+  it("drops the other account when the previous switch failed on its final registry write", async () => {
+    // Accepted false positive: bravo is fully registered, but the switch away
+    // from it leaves the same registry/session mismatch a failed login does.
+    await registerAuthenticatedSession(tokensFor("alpha"), "");
+    await registerAuthenticatedSession(tokensFor("bravo"), "");
+
+    failNextWriteOf = "valorant_accounts";
+    await expect(switchAccount("puuid-alpha")).rejects.toThrow(
+      "cookie write failed: valorant_accounts",
+    );
+    expect((await getSession())?.puuid).toBe("puuid-alpha");
+    expect((await getAccounts())?.activePuuid).toBe("puuid-bravo");
+
+    expect(await switchAccount("puuid-alpha")).toBe(true);
+
+    expect((await getSession())?.puuid).toBe("puuid-alpha");
+    const registry = await getAccounts();
+    expect(registry?.activePuuid).toBe("puuid-alpha");
+    expectRegistryDroppedBravo(registry);
   });
 });
 

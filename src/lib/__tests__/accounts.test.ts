@@ -377,6 +377,13 @@ describe("switchAccount", () => {
       },
     });
     mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+    mockGetSession.mockResolvedValue({
+      accessToken: "token-1",
+      entitlementsToken: "ent-token-1",
+      puuid: "existing-puuid",
+      region: "na",
+      createdAt: Date.now(),
+    });
 
     const result = await switchAccount("non-existent-puuid");
 
